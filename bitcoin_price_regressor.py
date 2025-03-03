@@ -20,6 +20,7 @@ Note:
 - Allows toggling Buy/Sell signals in the legend.
 """
 
+import os
 import argparse
 import yfinance as yf
 import pandas as pd
@@ -38,8 +39,25 @@ PERCENT_GAP_THRESHOLD = 0.15  # Default 15%, adjust as needed
 YEAR_WINDOW = 7
 
 # Load FRED API key
-with open("./credentials/credential_fred_api.txt", "r") as file:
-    fred_api_key = file.read().strip()
+# Try to load API key from environment variable
+fred_api_key = os.getenv("FRED_API_KEY")
+
+# If not found, fall back to reading from a file (for local execution)
+if not fred_api_key:
+    try:
+        with open("./credentials/credential_fred_api.txt", "r") as file:
+            fred_api_key = file.read().strip()
+    except FileNotFoundError:
+        raise RuntimeError("FRED API key is missing! Set it as an environment variable or store it in ./credentials/credential_fred_api.txt.")
+
+# Debugging: Ensure API key is set (Optional: Remove in production)
+if not fred_api_key:
+    raise RuntimeError("FRED API key could not be loaded from either environment variable or file!")
+
+print("API key loaded successfully.")  # For debugging purposes
+
+#with open("./credentials/credential_fred_api.txt", "r") as file:
+#    fred_api_key = file.read().strip()
 
 # Initialize FRED API
 fred = Fred(api_key=fred_api_key)

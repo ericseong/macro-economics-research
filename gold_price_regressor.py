@@ -34,13 +34,22 @@ args = parser.parse_args()
 years_window=3 # years span
 price_gap=0.05 # for gap detector, 5%
 
-# Load FRED API key
-fred_api_key_path = "./credentials/credential_fred_api.txt"
-try:
-    with open(fred_api_key_path, "r") as file:
-        fred_api_key = file.read().strip()
-except FileNotFoundError:
-    fred_api_key = None  # Handle missing API key gracefully
+# Try to load API key from environment variable
+fred_api_key = os.getenv("FRED_API_KEY")
+
+# If not found, fall back to reading from a file (for local execution)
+if not fred_api_key:
+    try:
+        with open("./credentials/credential_fred_api.txt", "r") as file:
+            fred_api_key = file.read().strip()
+    except FileNotFoundError:
+        raise RuntimeError("FRED API key is missing! Set it as an environment variable or store it in ./credentials/credential_fred_api.txt.")
+
+# Debugging: Ensure API key is set (Optional: Remove in production)
+if not fred_api_key:
+    raise RuntimeError("FRED API key could not be loaded from either environment variable or file!")
+
+print("API key loaded successfully.")  # For debugging purposes
 
 # Define the time period (last {years_window} years)
 end_date = datetime.today().strftime('%Y-%m-%d')
