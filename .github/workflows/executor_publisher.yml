@@ -20,16 +20,16 @@ jobs:
 
       - name: Install macOS dependencies
         run: |
+          brew install ta-lib
           brew install libjpeg libtiff freetype
           brew install little-cms2 openjpeg webp
-          brew install ta-lib
 
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
           pip install numpy==1.23.5  # Use a compatible NumPy version
-          pip install --no-cache-dir --only-binary=:all: Pillow
           pip install --no-cache-dir --only-binary=:all: TA-Lib
+          pip install --no-cache-dir --only-binary=:all: Pillow
           pip install -r requirements.txt  # Modify if needed
 
       - name: Run Python Script
