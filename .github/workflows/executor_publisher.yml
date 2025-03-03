@@ -1,0 +1,43 @@
+name: Daily Execute and HTML Update
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # Runs at 5:00 AM PST (13:00 UTC)
+  workflow_dispatch:  # Allows manual execution
+
+jobs:
+  run-script-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: |
+          source .env/bin/activate
+          pip install -r requirements.txt  # Modify if needed
+
+      - name: Run Python Script
+        run: |
+          python bitcoin_price_regressor.py --output=docs/bitcoin.html 
+          python gold_price_regressor.py --output=docs/gold.html 
+          python gold_gaps_korea.py --output=docs/gold_gap.html 
+          python strategy_vix.py 15.0 25.0 1 --output=docs/vix.html
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add docs/*.html
+          git commit -m "Update HTML file (automated)" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
