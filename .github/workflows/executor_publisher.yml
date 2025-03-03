@@ -49,9 +49,11 @@ jobs:
           mv docs/* .
           git add *.html
           git commit -m "Update GitHub Pages with latest HTML reports"
-          git push --force origin gh-pages
+          #git push --force origin gh-pages
+          git push --force https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git gh-pages
 
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
