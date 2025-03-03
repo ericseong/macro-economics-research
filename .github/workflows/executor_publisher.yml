@@ -18,8 +18,14 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install macOS dependencies
+        run: |
+          brew install libjpeg libtiff freetype
+          brew install little-cms2 openjpeg webp
+
       - name: Install Dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt  # Modify if needed
 
       - name: Run Python Script
