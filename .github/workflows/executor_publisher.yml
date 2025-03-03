@@ -60,7 +60,7 @@ jobs:
           fi
 
           git rm -rf .
-          mv docs/* .
+          mv docs/* . && rm -rf docs
           git add *.html
           git commit -m "Update GitHub Pages with latest HTML reports"
           echo "Pushing to GitHub Pages..."
