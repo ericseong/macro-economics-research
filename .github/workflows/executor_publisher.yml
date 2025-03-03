@@ -43,7 +43,8 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           # Set the correct remote URL with PAT authentication
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git
+          #git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ericseong/macro-economics-research.git
           # Verify the correct remote URL is set
           git remote -v
 
@@ -66,6 +67,7 @@ jobs:
           GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push --force origin gh-pages
 
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          #GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
