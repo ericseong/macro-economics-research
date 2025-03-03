@@ -47,10 +47,14 @@ jobs:
           # Verify the correct remote URL is set
           git remote -v
 
-          # Check if gh-pages branch exists
-          if git ls-remote --exit-code origin gh-pages; then
+          # Fetch all branches
+          git fetch --prune --unshallow
+
+          # Check if gh-pages exists remotely
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
             git checkout gh-pages
           else
+            echo "gh-pages does not exist remotely. Creating it..."
             git checkout --orphan gh-pages
           fi
 
