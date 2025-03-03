@@ -4,9 +4,16 @@ Usage: gold_gaps.py
 
 '''
 
+import os
+import argparse
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
+
+# Argument parser for optional output filename
+parser = argparse.ArgumentParser(description="Gold price gap analysis between Korea and US")
+parser.add_argument("--output", type=str, default=None, help="Output file path for saving the HTML graph.")
+args = parser.parse_args()
 
 # Fetch 2 years of data
 tickers = ["GLD", "411060.KS", "USDKRW=X"]
@@ -69,6 +76,15 @@ fig.update_layout(
     template="plotly_dark"
 )
 
-# Show figure
-fig.show()
+# Save the plot to an HTML file if output is provided, otherwise show it in the browser
+if args.output:
+    output_dir = os.path.dirname(args.output)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)  # Ensure directory exists
+    fig.write_html(args.output)
+    print(f"Graph saved to {args.output}")
+else:
+    fig.show()
+
+# eof
 

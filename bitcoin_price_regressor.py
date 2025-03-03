@@ -20,6 +20,7 @@ Note:
 - Allows toggling Buy/Sell signals in the legend.
 """
 
+import argparse
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -169,5 +170,18 @@ if all(feature in df.columns for feature in expected_features):
 
     fig.update_layout(title='Predicted vs Actual Bitcoin Prices', xaxis=dict(rangeslider=dict(visible=True), type='date'), yaxis=dict(title='Bitcoin Price (USD)'), yaxis2=dict(title='Log Net Liquidity', overlaying='y', side='right'))
 
-    fig.show()
+def main():
+    # Add argument parser
+    parser = argparse.ArgumentParser(description="Bitcoin Price Prediction and Analysis")
+    parser.add_argument("--output", type=str, help="Output HTML file to save the graph")
+    args = parser.parse_args()
 
+    # Check if an output file is specified
+    if args.output:
+        fig.write_html(args.output)
+        print(f"Graph saved to {args.output}")
+    else:
+        fig.show()
+
+if __name__ == "__main__":
+    main()

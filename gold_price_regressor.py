@@ -15,6 +15,8 @@ point to sell when the actuall price is more than {price_gap} percentage of the
 predicted price.
 '''
 
+import argparse
+import os
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -23,6 +25,11 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import yfinance as yf
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Argument parser for optional output filename
+parser = argparse.ArgumentParser(description="Regress gold price using selected economic factors.")
+parser.add_argument("--output", type=str, default=None, help="Output file path for saving the HTML graph.")
+args = parser.parse_args()
 
 years_window=3 # years span
 price_gap=0.05 # for gap detector, 5%
@@ -67,10 +74,7 @@ if fred_api_key:
     fred = Fred(api_key=fred_api_key)
     treasury_2y_series = fred.get_series("DGS2", start_date, end_date)
     df_fred = pd.DataFrame(treasury_2y_series, columns=["treasury_2y"])
-    #print('----df_fred:')
-    #print(df_fred)
     df_fred.index = pd.to_datetime(df_fred.index)
-    #df_fred = df_fred.ffill().dropna()
     df_fred = df_fred.ffill()
 else:
     df_fred = None
@@ -78,9 +82,8 @@ print('----df_fred:')
 print(df_fred.tail())
 
 # Merge all datasets
-#df = df_yf.merge(df_fred, left_index=True, right_index=True, how="inner").dropna()
 df = df_yf.merge(df_fred, left_index=True, right_index=True, how="left")
-df = df.ffill()  # Fill any missing treasury_2y data
+df = df.ffill()
 print('----df after merging all datasets:')
 print(df)
 
@@ -212,5 +215,14 @@ fig.update_layout(
     )
 )
 
-# Show the plot
-fig.show()
+# Save the plot to an HTML file if output is provided, otherwise show it in the browser
+if args.output:
+    output_dir = os.path.dirname(args.output)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)  # Ensure directory exists
+    fig.write_html(args.output)
+    print(f"Graph saved to {args.output}")
+else:
+    fig.show()
+
+
