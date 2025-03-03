@@ -22,6 +22,7 @@ jobs:
         run: |
           brew install libjpeg libtiff freetype
           brew install little-cms2 openjpeg webp
+          brew install ta-lib
 
       - name: Install Dependencies
         run: |
