@@ -118,7 +118,6 @@ sortedcontainers==2.4.0
 soupsieve==2.4.1
 spinners==0.0.24
 statsmodels==0.14.4
-TA-Lib==0.4.26
 tenacity==8.2.3
 termcolor==2.3.0
 threadpoolctl==3.5.0
