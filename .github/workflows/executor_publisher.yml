@@ -44,13 +44,16 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+          # Set the correct remote URL with PAT authentication
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git
           git checkout --orphan gh-pages
           git rm -rf .
           mv docs/* .
           git add *.html
           git commit -m "Update GitHub Pages with latest HTML reports"
           #git push --force origin gh-pages
-          git push --force https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git gh-pages
+          #git push --force https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git gh-pages
+          git push --force origin gh-pages
 
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
