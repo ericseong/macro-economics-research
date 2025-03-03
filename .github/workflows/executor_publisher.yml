@@ -26,6 +26,7 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
+          pip install --no-cache-dir --only-binary=:all: Pillow
           pip install -r requirements.txt  # Modify if needed
 
       - name: Run Python Script
@@ -35,13 +36,17 @@ jobs:
           python gold_gaps_korea.py --output=docs/gold_gap.html 
           python strategy_vix.py 15.0 25.0 1 --output=docs/vix.html
 
-      - name: Commit and Push Changes
+      - name: Deploy to GitHub Pages
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git add docs/*.html
-          git commit -m "Update HTML file (automated)" || echo "No changes to commit"
-          git push
+          git checkout --orphan gh-pages
+          git rm -rf .
+          mv docs/* .
+          git add *.html
+          git commit -m "Update GitHub Pages with latest HTML reports"
+          git push --force origin gh-pages
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
