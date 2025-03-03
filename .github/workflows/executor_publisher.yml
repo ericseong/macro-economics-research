@@ -27,8 +27,6 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          #pip install numpy==1.23.5  # Use a compatible NumPy version
-          #pip install --no-cache-dir --only-binary=:all: TA-Lib
           pip install -r requirements.txt  # Modify if needed
 
       - name: Run Python Script
@@ -46,17 +44,24 @@ jobs:
           git config --global user.email "github-actions@github.com"
           # Set the correct remote URL with PAT authentication
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git
-          git checkout --orphan gh-pages
+          # Verify the correct remote URL is set
+          git remote -v
+
+          # Check if gh-pages branch exists
+          if git ls-remote --exit-code origin gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+          fi
+
           git rm -rf .
           mv docs/* .
           git add *.html
           git commit -m "Update GitHub Pages with latest HTML reports"
-          #git push --force origin gh-pages
-          #git push --force https://x-access-token:${{ secrets.GH_PAT }}@github.com/ericseong/macro-economics-research.git gh-pages
-          git push --force origin gh-pages
+          echo "Pushing to GitHub Pages..."
+          GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push --force origin gh-pages
 
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
