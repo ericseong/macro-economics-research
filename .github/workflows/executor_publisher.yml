@@ -27,7 +27,9 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
+          pip install numpy==1.23.5  # Use a compatible NumPy version
           pip install --no-cache-dir --only-binary=:all: Pillow
+          pip install --no-cache-dir --only-binary=:all: TA-Lib
           pip install -r requirements.txt  # Modify if needed
 
       - name: Run Python Script
