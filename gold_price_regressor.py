@@ -52,7 +52,9 @@ if not fred_api_key:
 print("API key loaded successfully.")  # For debugging purposes
 
 # Define the time period (last {years_window} years)
-end_date = datetime.today().strftime('%Y-%m-%d')
+#end_date = datetime.today().strftime('%Y-%m-%d')
+end_date = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+
 print(f"end_date: {end_date}")
 start_date = (datetime.today() - timedelta(days=years_window*365)).strftime('%Y-%m-%d')
 print(f"start_date: {start_date}")
@@ -75,6 +77,35 @@ for key, ticker in tickers.items():
 # Convert dictionary to DataFrame
 df_yf = pd.DataFrame(data)
 print('----df_yf:')
+print(df_yf.tail())
+
+# Fetch latest available S&P 500 price
+latest_sp500 = yf.download("^GSPC", period="1d", interval="1h")
+print('latest_sp500:')
+print(latest_sp500)
+if not latest_sp500.empty:
+  # Convert latest_sp500 index to datetime without timezone
+  latest_sp500.index = latest_sp500.index.tz_localize(None)
+
+  # Extract last available trading date and price
+  last_trade_date = latest_sp500.index[-1].date()  # Convert to date only
+  last_price = latest_sp500["Close"].iloc[-1]
+
+  # Ensure df_yf index is datetime format
+  df_yf.index = pd.to_datetime(df_yf.index).date  # Convert to date format
+
+  # Update or append latest S&P 500 price
+  if last_trade_date in df_yf.index:
+    df_yf.at[last_trade_date, "sp500"] = last_price  # Update existing row
+  else:
+    new_row = pd.DataFrame({"gold_price": [np.nan], "sp500": [last_price],
+                            "dollar_index": [np.nan], "vix": [np.nan]},
+                            index=[last_trade_date])
+    df_yf = pd.concat([df_yf, new_row]).sort_index()  # Append and sort
+
+# if sp500 is still missing, forward-fill
+df_yf["sp500"].fillna(method="ffill", inplace=True)
+print('----df_yf with latest update:')
 print(df_yf.tail())
 
 # Fetch 2-Year Treasury Yield from FRED (if API key available)
