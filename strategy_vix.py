@@ -73,12 +73,14 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     print(f"Remaining Holdings: {holdings}")
 
     fig = go.Figure()
+
     fig.add_trace(go.Candlestick(
-        x=spy.index, open=spy['Open'], high=spy['High'],
-        low=spy['Low'], close=spy['Close'], name="SPY",
-        increasing=dict(line=dict(color="red")),
-        decreasing=dict(line=dict(color="green"))
+      x=spy.index, open=spy['Open'], high=spy['High'],
+      low=spy['Low'], close=spy['Close'], name="SPY",
+      increasing=dict(line=dict(color="red"), fillcolor="red"),
+      decreasing=dict(line=dict(color="blue"), fillcolor="blue")
     ))
+
     fig.add_trace(go.Scatter(
         x=spy.index, y=spy['100_MA'], mode='lines', name="100-Day MA",
         line=dict(color='blue', dash='solid')
