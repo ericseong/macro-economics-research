@@ -170,9 +170,9 @@ if all(feature in df.columns for feature in expected_features):
 
     # ✅ Preserve **Exact** Stat Summary Formatting
     stats_text = f"""
-    <b>Regression Formula:</b><br>{regression_formula}<br>
-    <b>R-Squared:</b> {model.rsquared:.3f}<br>
-    <b>Variance Inflation Factor (VIF):</b><br>{"<br>".join([f"{var}: {vif:.2f}" for var, vif in zip(vif_data['Variable'], vif_data['VIF'])])}
+    <br>Regression Formula:{regression_formula}
+    <br>R-Squared: {model.rsquared:.3f}
+    <br>Variance Inflation Factor (VIF):{"<br>".join([f"{var}: {vif:.2f}" for var, vif in zip(vif_data['Variable'], vif_data['VIF'])])}
     """
 
     # Create the figure
