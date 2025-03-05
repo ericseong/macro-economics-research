@@ -96,7 +96,8 @@ if not latest_sp500.empty:
 
   # Update or append latest S&P 500 price
   if last_trade_date in df_yf.index:
-    df_yf.at[last_trade_date, "sp500"] = last_price  # Update existing row
+    #df_yf.at[last_trade_date, "sp500"] = last_price  # Update existing row
+    df_yf.at[last_trade_date, "sp500"] = float(last_price.iloc[0])
   else:
     new_row = pd.DataFrame({"gold_price": [np.nan], "sp500": [last_price],
                             "dollar_index": [np.nan], "vix": [np.nan]},
@@ -104,7 +105,8 @@ if not latest_sp500.empty:
     df_yf = pd.concat([df_yf, new_row]).sort_index()  # Append and sort
 
 # if sp500 is still missing, forward-fill
-df_yf["sp500"].fillna(method="ffill", inplace=True)
+#df_yf["sp500"].fillna(method="ffill", inplace=True)
+df_yf["sp500"] = df_yf["sp500"].ffill()
 print('----df_yf with latest update:')
 print(df_yf.tail())
 
