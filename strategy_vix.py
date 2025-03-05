@@ -3,6 +3,7 @@ import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
+
 def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     amount_trading = float(amount_trading)
     end_date = datetime.today()
@@ -41,7 +42,9 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                 transactions.append((date, "BUY", buy_amount, price))
                 print(f"[{date}] BUY: Amount={buy_amount}, Price={price:.2f}")
             else:
-                print(f"[{date}] BUY SKIPPED: Insufficient cash. Cash={cash:.2f}, Cost={cost:.2f}")
+                print(
+                    f"[{date}] BUY SKIPPED: Insufficient cash. Cash={cash:.2f}, Cost={cost:.2f}"
+                )
 
         elif vix_value < vix_low:
             sell_amount = min(holdings, amount_trading)
@@ -51,7 +54,8 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                 cash += revenue - transaction_fee
                 holdings -= sell_amount
                 transactions.append((date, "SELL", sell_amount, price))
-                print(f"[{date}] SELL: Amount={sell_amount}, Price={price:.2f}")
+                print(
+                    f"[{date}] SELL: Amount={sell_amount}, Price={price:.2f}")
             else:
                 print(f"[{date}] SELL SKIPPED: No holdings to sell.")
 
@@ -74,39 +78,66 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
 
     fig = go.Figure()
 
-    fig.add_trace(go.Candlestick(
-      x=spy.index, open=spy['Open'], high=spy['High'],
-      low=spy['Low'], close=spy['Close'], name="SPY",
-      increasing=dict(line=dict(color="red"), fillcolor="red"),
-      decreasing=dict(line=dict(color="blue"), fillcolor="blue")
-    ))
+    fig.add_trace(
+        go.Candlestick(x=spy.index,
+                       open=spy['Open'],
+                       high=spy['High'],
+                       low=spy['Low'],
+                       close=spy['Close'],
+                       name="SPY",
+                       increasing=dict(line=dict(color="red"),
+                                       fillcolor="red"),
+                       decreasing=dict(line=dict(color="blue"),
+                                       fillcolor="blue")))
 
-    fig.add_trace(go.Scatter(
-        x=spy.index, y=spy['100_MA'], mode='lines', name="100-Day MA",
-        line=dict(color='blue', dash='solid')
-    ))
-    fig.add_trace(go.Scatter(
-        x=spy.index, y=spy['200_MA'], mode='lines', name="200-Day MA",
-        line=dict(color='orange', dash='solid')
-    ))
-    fig.add_trace(go.Scatter(
-        x=spy.index, y=spy['VIX'], mode='lines', name="VIX",
-        line=dict(color='purple'), yaxis="y2"
-    ))
+    fig.add_trace(
+        go.Scatter(x=spy.index,
+                   y=spy['100_MA'],
+                   mode='lines',
+                   name="100-Day MA",
+                   line=dict(color='blue', dash='solid')))
+    fig.add_trace(
+        go.Scatter(x=spy.index,
+                   y=spy['200_MA'],
+                   mode='lines',
+                   name="200-Day MA",
+                   line=dict(color='orange', dash='solid')))
+    fig.add_trace(
+        go.Scatter(x=spy.index,
+                   y=spy['VIX'],
+                   mode='lines',
+                   name="VIX",
+                   line=dict(color='purple'),
+                   yaxis="y2"))
 
-    buy_dates = [date for date, action, amount, price in transactions if action == "BUY"]
-    buy_prices = [price for date, action, amount, price in transactions if action == "BUY"]
-    sell_dates = [date for date, action, amount, price in transactions if action == "SELL"]
-    sell_prices = [price for date, action, amount, price in transactions if action == "SELL"]
+    buy_dates = [
+        date for date, action, amount, price in transactions if action == "BUY"
+    ]
+    buy_prices = [
+        price for date, action, amount, price in transactions
+        if action == "BUY"
+    ]
+    sell_dates = [
+        date for date, action, amount, price in transactions
+        if action == "SELL"
+    ]
+    sell_prices = [
+        price for date, action, amount, price in transactions
+        if action == "SELL"
+    ]
 
-    fig.add_trace(go.Scatter(
-        x=buy_dates, y=buy_prices, mode='markers',
-        marker=dict(symbol='triangle-up', color='blue', size=12), name="Buy"
-    ))
-    fig.add_trace(go.Scatter(
-        x=sell_dates, y=sell_prices, mode='markers',
-        marker=dict(symbol='triangle-down', color='red', size=12), name="Sell"
-    ))
+    fig.add_trace(
+        go.Scatter(x=buy_dates,
+                   y=buy_prices,
+                   mode='markers',
+                   marker=dict(symbol='triangle-up', color='blue', size=12),
+                   name="Buy"))
+    fig.add_trace(
+        go.Scatter(x=sell_dates,
+                   y=sell_prices,
+                   mode='markers',
+                   marker=dict(symbol='triangle-down', color='red', size=12),
+                   name="Sell"))
 
     fig.update_layout(
         title="Trading Simulation with SPY and VIX",
@@ -122,12 +153,23 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     else:
         fig.show()
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simulate trading based on VIX levels.")
-    parser.add_argument("VIX_LOW", type=float, help="The lower threshold for VIX to sell SPY. ex. 15")
-    parser.add_argument("VIX_HIGH", type=float, help="The upper threshold for VIX to buy SPY., ex. 25")
-    parser.add_argument("AMOUNT_TRADING", type=float, help="The amount of SPY to trade each time., ex. 1")
-    parser.add_argument("--output", type=str, default=None, help="Output HTML file for the graph.")
-    args = parser.parse_args()
-    simulate_trading(args.VIX_LOW, args.VIX_HIGH, args.AMOUNT_TRADING, args.output)
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Simulate trading based on VIX levels.")
+    parser.add_argument("VIX_LOW",
+                        type=float,
+                        help="The lower threshold for VIX to sell SPY. ex. 15")
+    parser.add_argument("VIX_HIGH",
+                        type=float,
+                        help="The upper threshold for VIX to buy SPY., ex. 25")
+    parser.add_argument("AMOUNT_TRADING",
+                        type=float,
+                        help="The amount of SPY to trade each time., ex. 1")
+    parser.add_argument("--output",
+                        type=str,
+                        default=None,
+                        help="Output HTML file for the graph.")
+    args = parser.parse_args()
+    simulate_trading(args.VIX_LOW, args.VIX_HIGH, args.AMOUNT_TRADING,
+                     args.output)
