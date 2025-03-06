@@ -187,6 +187,7 @@ if all(feature in df.columns for feature in expected_features):
     fig.add_annotation(text=stats_text, xref='paper', yref='paper', x=0.02, y=0.98, showarrow=False, align="left", font=dict(size=12))
 
     fig.update_layout(title='Predicted vs Actual Bitcoin Prices', xaxis=dict(rangeslider=dict(visible=True), type='date'), yaxis=dict(title='Bitcoin Price (USD)'), yaxis2=dict(title='Log Net Liquidity', overlaying='y', side='right'))
+    fig.update_layout(template="plotly_dark")
 
 def main():
     # Add argument parser

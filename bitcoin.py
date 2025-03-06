@@ -1,3 +1,4 @@
+import argparse
 import ccxt
 import pandas as pd
 import plotly.graph_objects as go
@@ -14,7 +15,12 @@ def fetch_historical_data(exchange, symbol, timeframe, since):
     data.set_index('timestamp', inplace=True)
     return data
 
-# Initialize the exchange (Kraken provides historical data back to 2011 for BTC/USD)
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Generate BTC/USD OHLC chart with halving events.')
+parser.add_argument('--output', type=str, help='Output file name (HTML). If not provided, opens in web browser.')
+args = parser.parse_args()
+
+# Initialize the exchange
 exchange = ccxt.kraken()
 symbol = "BTC/USD"
 timeframe = '1w'  # Weekly data
@@ -37,9 +43,9 @@ halving_dates = [
 ]
 
 # Prepare data for linear regression on 'close' prices
-data['ordinal_date'] = data.index.map(datetime.toordinal)  # Convert dates to ordinal numbers
+data['ordinal_date'] = data.index.map(datetime.toordinal)
 x = data['ordinal_date'].values.reshape(-1, 1)
-y = np.log(data['close'].values.reshape(-1, 1))  # Use log-transformed prices for better regression
+y = np.log(data['close'].values.reshape(-1, 1))
 model = LinearRegression()
 model.fit(x, y)
 
@@ -76,7 +82,7 @@ fig.add_trace(go.Bar(
     x=data.index,
     y=data['volume'],
     name='Volume',
-    marker_color='blue'
+    marker_color='lightgray'
 ), row=2, col=1)
 
 # Add vertical lines for halving events
@@ -98,17 +104,19 @@ fig.update_layout(
     title='BTC/USD Weekly OHLC and Volume with Halving Events (Log Scale, Kraken)',
     xaxis_title='Date',
     yaxis_title='Price (USD, Log Scale)',
-    yaxis_type='log',  # Set the Y-axis to logarithmic scale
-    yaxis_range=[2, 7],  # Log scale range: 10^2 (100) to 10^7 (10,000,000)
-    xaxis_range=[datetime(2014, 1, 1), datetime(2034, 12, 31)],  # Set the X-axis range to 2014-2034
-    xaxis_showgrid=True,  # Enable horizontal grid lines
-    yaxis_showgrid=True,  # Enable vertical grid lines for OHLC chart
-    template='plotly_dark',  # Restore previous dark background template
+    yaxis_type='log',
+    yaxis_range=[2, 7],
+    xaxis_range=[datetime(2014, 1, 1), datetime(2034, 12, 31)],
+    xaxis_showgrid=True,
+    yaxis_showgrid=True,
+    template='plotly_dark',
     showlegend=True
 )
 
-# Save the chart as an HTML file
-fig.write_html("btc_kraken_weekly_chart_with_log_scale_and_extended_y.html")
-
-print("Chart saved as btc_kraken_weekly_chart_with_log_scale_and_extended_y.html")
+# Save to file or open in web browser
+if args.output:
+    fig.write_html(args.output)
+    print(f"Chart saved as {args.output}")
+else:
+    fig.show()
 

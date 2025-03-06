@@ -175,7 +175,7 @@ fig.add_trace(go.Scatter(
     y=df["gold_price"],
     mode="lines",
     name="Actual Gold Price",
-    line=dict(color="blue")
+    line=dict(color="skyblue")
 ))
 
 # Add predicted gold price trace
@@ -256,6 +256,15 @@ fig.update_layout(
         type="date"
     )
 )
+fig.update_layout(
+    legend=dict(
+        x=0,
+        y=1,
+        xanchor='left',
+        yanchor='top'
+    )
+)
+fig.update_layout(template="plotly_dark")
 
 # Save the plot to an HTML file if output is provided, otherwise show it in the browser
 if args.output:

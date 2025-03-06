@@ -2,9 +2,9 @@ name: Daily Execute and HTML Update
 
 on:
   schedule:
-    - cron: '0 15 * * *' # 0 AM KST (16:00 UTC)
-    - cron: '0 23 * * *'  # 8 AM KST (00:00 UTC)
-    - cron: '0 7 * * *'  # 4 PM KST (08:00 UTC)
+    - cron: '31 14 * * *' # 11:31 PM KST (14:31 UTC)
+    - cron: '1 0 * * *'  # 9:01 AM KST (00:01 UTC)
+    - cron: '0 3 * * *'  # 12:00 PM KST (03:00 UTC)
 
   workflow_dispatch:  # Allows manual execution
 
@@ -38,6 +38,7 @@ jobs:
           python gold_price_regressor.py --output=docs/gold.html 
           python gold_gaps_korea.py --output=docs/gold_gap.html 
           python strategy_vix.py 15.0 25.0 1 --output=docs/vix.html
+          python bitcoin.py --output=docs/bitcoin_long_term.html
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
 
