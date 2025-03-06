@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     amount_trading = float(amount_trading)
     end_date = datetime.today()
-    start_date = end_date - timedelta(days=5 * 365)
+    start_date = end_date - timedelta(days=4 * 365)
 
     spy = yf.download("SPY", start=start_date, end=end_date, group_by="ticker")
     spy.columns = spy.columns.droplevel(0)
