@@ -177,13 +177,13 @@ if all(feature in df.columns for feature in expected_features):
 
     # Create the figure
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df.index, y=df['Bitcoin'], mode='lines', name='Actual Bitcoin Price'))
-    fig.add_trace(go.Scatter(x=df.index, y=df['Predicted Bitcoin'], mode='lines', name='Predicted Bitcoin Price'))
-    fig.add_trace(go.Scatter(x=df.index, y=df['100-Day MA'], mode='lines', line=dict(dash='dash', color='darkblue', width=2), name='100-Day Moving Average'))
+    fig.add_trace(go.Scatter(x=df.index, y=df['Bitcoin'], mode='lines', line=dict(color='skyblue', width=2), name='Actual Bitcoin Price'))
+    fig.add_trace(go.Scatter(x=df.index, y=df['Predicted Bitcoin'], mode='lines', line=dict(color='orange', width=2), name='Predicted Bitcoin Price'))
+    fig.add_trace(go.Scatter(x=df.index, y=df['100-Day MA'], mode='lines', line=dict(dash='dash', color='skyblue', width=2), name='100-Day Moving Average'))
     fig.add_trace(go.Scatter(x=df.index, y=df['10-Day MA'], mode='lines', line=dict(dash='dot', color='skyblue', width=2), name='10-Day Moving Average'))
-    fig.add_trace(go.Scatter(x=df.index, y=df['Log Net Liquidity'], mode='lines', line=dict(color='purple', width=2), name='Log Net Liquidity', yaxis='y2'))
-    fig.add_trace(go.Scatter(x=df[df['Buy Signal']].index, y=df[df['Buy Signal']]['Bitcoin'], mode='markers', marker=dict(size=10, color='blue', symbol='triangle-up'), name='Buy Signal (▲)'))
-    fig.add_trace(go.Scatter(x=df[df['Sell Signal']].index, y=df[df['Sell Signal']]['Bitcoin'], mode='markers', marker=dict(size=10, color='red', symbol='triangle-down'), name='Sell Signal (▼)'))
+    fig.add_trace(go.Scatter(x=df.index, y=df['Log Net Liquidity'], mode='lines', line=dict(color='darkgray', width=2), name='Log Net Liquidity', yaxis='y2'))
+    fig.add_trace(go.Scatter(x=df[df['Buy Signal']].index, y=df[df['Buy Signal']]['Bitcoin'], mode='markers', marker=dict(size=8, color='green', symbol='triangle-up'), name='Buy Signal (▲)'))
+    fig.add_trace(go.Scatter(x=df[df['Sell Signal']].index, y=df[df['Sell Signal']]['Bitcoin'], mode='markers', marker=dict(size=8, color='red', symbol='triangle-down'), name='Sell Signal (▼)'))
     fig.add_annotation(text=stats_text, xref='paper', yref='paper', x=0.02, y=0.98, showarrow=False, align="left", font=dict(size=12))
 
     fig.update_layout(title='Predicted vs Actual Bitcoin Prices', xaxis=dict(rangeslider=dict(visible=True), type='date'), yaxis=dict(title='Bitcoin Price (USD)'), yaxis2=dict(title='Log Net Liquidity', overlaying='y', side='right'))
