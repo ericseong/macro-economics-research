@@ -250,7 +250,7 @@ fig.update_layout(
     xaxis_title="Date",
     yaxis_title="Gold Price (USD)",
     legend_title="Legend",
-    template="plotly_white",
+    template="plotly_dark",
     xaxis=dict(
         rangeslider=dict(visible=True),
         type="date"
@@ -264,7 +264,6 @@ fig.update_layout(
         yanchor='top'
     )
 )
-fig.update_layout(template="plotly_dark")
 
 # Save the plot to an HTML file if output is provided, otherwise show it in the browser
 if args.output:

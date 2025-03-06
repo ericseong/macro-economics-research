@@ -87,8 +87,8 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                        name="SPY",
                        increasing=dict(line=dict(color="red"),
                                        fillcolor="red"),
-                       decreasing=dict(line=dict(color="blue"),
-                                       fillcolor="blue")))
+                       decreasing=dict(line=dict(color="green"),
+                                       fillcolor="green")))
 
     fig.add_trace(
         go.Scatter(x=spy.index,
@@ -107,7 +107,7 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                    y=spy['VIX'],
                    mode='lines',
                    name="VIX",
-                   line=dict(color='purple'),
+                   line=dict(color='gray'),
                    yaxis="y2"))
 
     buy_dates = [
@@ -130,13 +130,13 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
         go.Scatter(x=buy_dates,
                    y=buy_prices,
                    mode='markers',
-                   marker=dict(symbol='triangle-up', color='blue', size=12),
+                   marker=dict(symbol='triangle-up', color='blue', size=10),
                    name="Buy"))
     fig.add_trace(
         go.Scatter(x=sell_dates,
                    y=sell_prices,
                    mode='markers',
-                   marker=dict(symbol='triangle-down', color='red', size=12),
+                   marker=dict(symbol='triangle-down', color='red', size=10),
                    name="Sell"))
 
     fig.update_layout(
@@ -145,6 +145,7 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
         yaxis=dict(title="SPY Price", side="left"),
         yaxis2=dict(title="VIX", overlaying="y", side="right"),
         legend=dict(x=0, y=1),
+        template='plotly_dark'
     )
 
     if output_file:
