@@ -258,8 +258,8 @@ fig.update_layout(
 )
 fig.update_layout(
     legend=dict(
-        x=0,
-        y=1,
+        x=1.02, # move outside the right side
+        y=1, # align with the top
         xanchor='left',
         yanchor='top'
     )
