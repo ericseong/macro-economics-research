@@ -44,33 +44,37 @@ gld_norm = (data_cleaned["GLD"] / data_cleaned["GLD"].iloc[0]) * 100
 kr_gold_norm = (data_cleaned["411060_KS_USD"] / data_cleaned["411060_KS_USD"].iloc[0]) * 100
 
 # Calculate ETF Premium/Discount as normalized difference
-etf_premium_discount = kr_gold_norm - gld_norm
+etf_premium_discount = 100 * (kr_gold_norm - gld_norm) / kr_gold_norm # in percentage
 
 # Create figure
 fig = go.Figure()
 
 # Add line traces for normalized values
 fig.add_trace(go.Scatter(
-    x=data_cleaned.index, y=gld_norm, mode="lines", name="GLD Normalized (%)", yaxis="y1"
+    x=data_cleaned.index, y=gld_norm, mode="lines",
+      line=dict(color="gold", dash="solid"),
+      name="GLD ETF Normalized (%)", yaxis="y1"
 ))
 fig.add_trace(go.Scatter(
-    x=data_cleaned.index, y=kr_gold_norm, mode="lines", name="411060.KS Normalized (%)", yaxis="y1"
+    x=data_cleaned.index, y=kr_gold_norm, mode="lines",
+      line=dict(color="red", dash="solid"),
+      name="411060.KS (ACE KRX 금현물) Normalized (%)", yaxis="y1"
 ))
 
 # Add bar chart for ETF Premium/Discount
 fig.add_trace(go.Bar(
-    x=data_cleaned.index, y=etf_premium_discount, name="ETF Premium/Discount (Normalized)", yaxis="y2", marker=dict(color="gray")
+    x=data_cleaned.index, y=etf_premium_discount, name="Korea market premium Normalized (%)", yaxis="y2", marker=dict(color="gray")
 ))
 
 # Layout settings
 fig.update_layout(
-    title="ETF Premium/Discount vs NAV (GLD) - 2 Years",
+    title="Korea gold price premium analysis",
     xaxis=dict(
         rangeslider=dict(visible=True), type="date", title="Date"
     ),
-    yaxis=dict(title="Normalized Value (%)", side="left"),
+    yaxis=dict(title="Normalized price", side="left"),
     yaxis2=dict(
-        title="ETF Premium/Discount (Normalized)", overlaying="y", side="right", showgrid=False
+        title="Premium", overlaying="y", side="right", showgrid=False
     ),
     legend=dict(x=0, y=1),
     template="plotly_dark"

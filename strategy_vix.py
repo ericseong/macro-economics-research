@@ -95,19 +95,19 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                    y=spy['100_MA'],
                    mode='lines',
                    name="100-Day MA",
-                   line=dict(color='blue', dash='solid')))
+                   line=dict(color='lightgray', dash='dot', width=2)))
     fig.add_trace(
         go.Scatter(x=spy.index,
                    y=spy['200_MA'],
                    mode='lines',
                    name="200-Day MA",
-                   line=dict(color='orange', dash='solid')))
+                   line=dict(color='lightgray', dash='dot', width=4)))
     fig.add_trace(
         go.Scatter(x=spy.index,
                    y=spy['VIX'],
                    mode='lines',
                    name="VIX",
-                   line=dict(color='gray'),
+                   line=dict(color='orchid'),
                    yaxis="y2"))
 
     buy_dates = [
@@ -130,13 +130,13 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
         go.Scatter(x=buy_dates,
                    y=buy_prices,
                    mode='markers',
-                   marker=dict(symbol='triangle-up', color='blue', size=10),
+                   marker=dict(symbol='triangle-up', color='white', size=10),
                    name="Buy"))
     fig.add_trace(
         go.Scatter(x=sell_dates,
                    y=sell_prices,
                    mode='markers',
-                   marker=dict(symbol='triangle-down', color='red', size=10),
+                   marker=dict(symbol='triangle-down', color='yellow', size=10),
                    name="Sell"))
 
     fig.update_layout(

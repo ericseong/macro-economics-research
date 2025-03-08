@@ -175,7 +175,7 @@ fig.add_trace(go.Scatter(
     y=df["gold_price"],
     mode="lines",
     name="Actual Gold Price",
-    line=dict(color="skyblue")
+    line=dict(color="gold")
 ))
 
 # Add predicted gold price trace
@@ -184,7 +184,7 @@ fig.add_trace(go.Scatter(
     y=df["Predicted Gold Price"],
     mode="lines",
     name="Predicted Gold Price",
-    line=dict(color="orange", dash="solid")
+    line=dict(color="skyblue", dash="solid")
 ))
 
 # Add buy signal markers
@@ -192,7 +192,7 @@ fig.add_trace(go.Scatter(
     x=df.index[df["Buy Signal"]],
     y=df["gold_price"][df["Buy Signal"]],
     mode="markers",
-    marker=dict(symbol="triangle-up", size=10, color="green"),
+    marker=dict(symbol="triangle-up", size=10, color="white"),
     name=f"Buy Signal Based on Price Gap {price_gap}"
 ))
 
@@ -201,7 +201,7 @@ fig.add_trace(go.Scatter(
     x=df.index[df["Sell Signal"]],
     y=df["gold_price"][df["Sell Signal"]],
     mode="markers",
-    marker=dict(symbol="triangle-down", size=10, color="red"),
+    marker=dict(symbol="triangle-down", size=10, color="yellow"),
     name=f"Sell Signal Based on Price Gap {price_gap}"
 ))
 
@@ -211,7 +211,7 @@ fig.add_annotation(
     y=df["gold_price"].max(),
     text=regression_formula,
     showarrow=False,
-    font=dict(size=12, color="black"),
+    font=dict(size=10, color="black"),
     align="left",
     bordercolor="black",
     borderwidth=1,
@@ -224,7 +224,7 @@ fig.add_annotation(
     y=df["gold_price"].max() * 0.95,
     text=r_squared_text,
     showarrow=False,
-    font=dict(size=12, color="black"),
+    font=dict(size=10, color="black"),
     align="left",
     bordercolor="black",
     borderwidth=1,

@@ -65,7 +65,9 @@ fig.add_trace(go.Candlestick(
     high=data['high'],
     low=data['low'],
     close=data['close'],
-    name='OHLC'
+    name='OHLC',
+    increasing=dict(line=dict(color="red"), fillcolor="red"),
+    decreasing=dict(line=dict(color="green"), fillcolor="green")
 ), row=1, col=1)
 
 # Add regression line (exponentiated to revert log transformation)
