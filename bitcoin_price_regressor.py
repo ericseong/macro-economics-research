@@ -80,6 +80,23 @@ tickers = {
     '^VIX': 'VIX Index'
 }
 
+def debug_print( text: str, data: pd.Series, freq: str ):
+  print(text)
+  data.index = pd.to_datetime(data.index)
+  latest_date = data.index.max()
+  if freq == 'year':
+    sampled_data = data.groupby(data.index.year).apply(
+      lambda x: x.iloc[np.argmin(np.abs((x.index - latest_date)
+                                        .total_seconds()))])
+  elif freq == 'month':
+    sampled_data = data.groupby(data.index.to_period('M')).apply(
+      lambda x: x.iloc[np.argmin(np.abs((x.index - latest_date)
+                                        .total_seconds()))])
+  else:
+    print("Invalid frequency. Use 'year' or 'month'.")
+  sampled_data = sampled_data.sort_index(ascending=False)
+  print(sampled_data)
+
 # Download data from Yahoo Finance with some retry trials
 data = {}
 for ticker, name in tickers.items():
@@ -113,8 +130,11 @@ except Exception as e:
 # Get Net Liquidity Components
 try:
     fed_balance_sheet = fred.get_series('WALCL', start_date, end_date)
+    debug_print('fed_balance_sheet (M$)', fed_balance_sheet, 'year')
     reverse_repo = fred.get_series('RRPONTSYD', start_date, end_date)
+    debug_print('reverse_repo (M$)', reverse_repo, 'year')
     treasury_general_account = fred.get_series('WTREGEN', start_date, end_date)
+    debug_print('treasury_general_account (M$)', treasury_general_account, 'year')
 
     # Compute Net Liquidity
     data['Net Liquidity'] = fed_balance_sheet - reverse_repo - treasury_general_account
@@ -226,8 +246,25 @@ if all(feature in df.columns for feature in expected_features):
     fig.add_trace(go.Scatter(x=df[df['Sell Signal']].index, y=df[df['Sell Signal']]['Bitcoin'], mode='markers', marker=dict(size=8, color='yellow', symbol='triangle-down'), name='Sell Signal (▼)'))
     fig.add_annotation(text=stats_text, xref='paper', yref='paper', x=0.02, y=0.98, showarrow=False, align="left", font=dict(size=12))
 
-    fig.update_layout(title='Predicted vs Actual Bitcoin Prices', xaxis=dict(rangeslider=dict(visible=True), type='date'), yaxis=dict(title='Bitcoin Price (USD)'), yaxis2=dict(title='Log Net Liquidity', overlaying='y', side='right'))
-    fig.update_layout(template="plotly_dark")
+    fig.update_layout(title='Predicted vs Actual Bitcoin Prices',
+      xaxis=dict(
+        rangeslider=dict(visible=True),
+        type='date',
+        fixedrange=False # allows zooming on x-axis
+      ),
+      yaxis=dict(
+        title='Bitcoin Price (USD)',
+        fixedrange=True # prevents zooming on y-axis
+     ),
+     yaxis2=dict(
+       title='Log Net Liquidity',
+       overlaying='y',
+       side='right',
+       fixedrange=True # Prevents zooming on secondary y-axis
+     ),
+     dragmode='pan',
+     template="plotly_dark"
+    )
 
 def main():
     # Add argument parser
@@ -237,10 +274,10 @@ def main():
 
     # Check if an output file is specified
     if args.output:
-        fig.write_html(args.output)
+        fig.write_html(args.output, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
         print(f"Graph saved to {args.output}")
     else:
-        fig.show()
+        fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 
 if __name__ == "__main__":
     main()

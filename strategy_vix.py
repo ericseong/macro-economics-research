@@ -138,21 +138,35 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
                    mode='markers',
                    marker=dict(symbol='triangle-down', color='yellow', size=10),
                    name="Sell"))
-
     fig.update_layout(
         title="Trading Simulation with SPY and VIX",
-        xaxis_title="Date",
-        yaxis=dict(title="SPY Price", side="left"),
-        yaxis2=dict(title="VIX", overlaying="y", side="right"),
+        xaxis=dict(
+          rangeslider=dict(visible=True),
+          type='date',
+          fixedrange=False # allow zooming on x-axis
+        ),
+        #xaxis_title="Date",
+        yaxis=dict(
+          title="SPY Price",
+          side="left",
+          fixedrange=True # prevents zooming on y-axis
+        ),
+        yaxis2=dict(
+          title="VIX",
+          overlaying="y",
+          side="right",
+          fixedrange=True # prevents zooming on secondary y-axis
+        ),
         legend=dict(x=0, y=1),
+        dragmode='pan',
         template='plotly_dark'
     )
 
     if output_file:
-        fig.write_html(output_file)
+        fig.write_html(output_file, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d'], 'modeBarButtonsToRemove': ['zoom2d']})
         print(f"Graph saved to {output_file}")
     else:
-        fig.show()
+        fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d'], 'modeBarButtonsToRemove': ['zoom2d']})
 
 
 if __name__ == "__main__":

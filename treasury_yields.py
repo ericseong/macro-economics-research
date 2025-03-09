@@ -1,3 +1,10 @@
+'''
+treasury_yields.py
+
+Known issue:
+  - Data for the most recent date is missing for 10-year US treasury data
+  fetched by fredapi.
+'''
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -31,9 +38,12 @@ fred = Fred(api_key=fred_api_key)
 #end_date = datetime.now()
 #start_date = end_date - timedelta(days=365*10)  # 10 years of data
 # Get US 10-year Treasury yield data (series ID: DGS10)
-end_date = datetime.now().date() - timedelta(days=1)  # Use yesterday to avoid future dates
+#end_date = datetime.now().date() - timedelta(days=1)  # Use yesterday to avoid future dates
+end_date = datetime.now().date()
 start_date = end_date - timedelta(days=365*10)  # 10 years of data
 us_treasury = fred.get_series('DGS10', start_date, end_date)
+print('us_treasury')
+print(us_treasury)
 us_treasury = us_treasury.dropna()
 
 # Create OHLC data for US
@@ -47,6 +57,8 @@ us_treasury_df['Low'] = us_treasury_df['Close'] * 0.995
 
 # Read Japan 10-year Treasury yield from CSV
 japan_treasury = pd.read_csv('HistoricalPrices.csv')
+print('japan_treasury')
+print(japan_treasury)
 japan_treasury.columns = japan_treasury.columns.str.strip()
 japan_treasury['Date'] = pd.to_datetime(japan_treasury['Date'], format='%m/%d/%y')
 japan_treasury = japan_treasury.sort_values('Date')
@@ -134,23 +146,29 @@ fig.add_trace(
         low=merged_df['Low_NQ'],
         close=merged_df['Close_NQ'],
         name='NASDAQ',
-        increasing_line_color='blue',
-        decreasing_line_color='orange'
+        increasing_line_color='orange',
+        decreasing_line_color='blue'
     ),
     secondary_y=True,
 )
 
 # Update layout
 fig.update_layout(
-    template='plotly_dark',
     title='US vs Japan 10-Year Treasury Yields, Yield Gap, and NASDAQ',
-    xaxis_title='Date',
+    #xaxis_title='Date',
     hovermode='x unified',
     xaxis=dict(
-        rangeslider=dict(visible=True),
-        type='date'
+      rangeslider=dict(visible=True),
+      title='Date',
+      type='date',
+      fixedrange=False # allows zooming on x-axis
     ),
-    showlegend=True
+    yaxis=dict(
+      fixedrange=True # prevents zooming on y-axis
+    ),
+    showlegend=True,
+    dragmode='pan',
+    template='plotly_dark'
 )
 
 # Update y-axes
@@ -164,4 +182,5 @@ fig.update_yaxes(
 )
 
 # Show the plot
-fig.show()
+fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
+

@@ -196,6 +196,12 @@ regression_formula = f"Gold Price = {coeffs['const']:.2f} + ({coeffs['dollar_ind
 r_squared_text = f"R-squared: {r_squared:.4f}"
 vif_text = "VIF Values:\n" + "\n".join([f"{var}: {vif:.2f}" for var, vif in zip(vif_data["Variable"], vif_data["VIF"])])
 
+stats_text = f"""
+<br>Regression Formula:{regression_formula}
+<br>R-Squared: {model.rsquared:.3f}
+<br>Variance Inflation Factor (VIF):{"<br>".join([f"{var}: {vif:.2f}" for var, vif in zip(vif_data['Variable'], vif_data['VIF'])])}
+"""
+
 # Identify buy and sell signals
 df["Buy Signal"] = df["Predicted Gold Price"] > df["gold_price"] * (1+price_gap)
 df["Sell Signal"] = df["Predicted Gold Price"] < df["gold_price"] * (1-price_gap)
@@ -239,6 +245,19 @@ fig.add_trace(go.Scatter(
     name=f"Sell Signal Based on Price Gap {price_gap}"
 ))
 
+# Add some informational text.
+fig.add_annotation(
+  text=stats_text,
+  xref='paper',
+  yref='paper',
+  x=0.02,
+  y=0.98,
+  showarrow=False,
+  align="left",
+  font=dict(size=12)
+)
+
+'''
 # Add regression formula annotation
 fig.add_annotation(
     x=df.index[len(df) // 2],
@@ -277,19 +296,28 @@ fig.add_annotation(
     borderwidth=1,
     bgcolor="white"
 )
+'''
 
 # Add slider for zooming
 fig.update_layout(
     title=f"Actual vs Predicted Gold Price (Last {years_window} Years) with Buy/Sell Signals",
-    xaxis_title="Date",
-    yaxis_title="Gold Price (USD)",
+    #xaxis_title="Date",
+    #yaxis_title="Gold Price (USD)",
     legend_title="Legend",
-    template="plotly_dark",
     xaxis=dict(
         rangeslider=dict(visible=True),
-        type="date"
-    )
+        title='Date',
+        type="date",
+        fixedrange=False # allows zooming on x-axis
+    ),
+    yaxis=dict(
+      title='Gold Price (USD)',
+      fixedrange=True # prevents zooming on y-axis
+    ),
+    dragmode='pan',
+    template='plotly_dark'
 )
+'''
 fig.update_layout(
     legend=dict(
         x=1.02, # move outside the right side
@@ -298,15 +326,16 @@ fig.update_layout(
         yanchor='top'
     )
 )
+'''
 
 # Save the plot to an HTML file if output is provided, otherwise show it in the browser
 if args.output:
     output_dir = os.path.dirname(args.output)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)  # Ensure directory exists
-    fig.write_html(args.output)
+    fig.write_html(args.output, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
     print(f"Graph saved to {args.output}")
 else:
-    fig.show()
+    fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 
 

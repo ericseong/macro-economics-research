@@ -70,13 +70,25 @@ fig.add_trace(go.Bar(
 fig.update_layout(
     title="Korea gold price premium analysis",
     xaxis=dict(
-        rangeslider=dict(visible=True), type="date", title="Date"
+      rangeslider=dict(visible=True),
+      type="date",
+      title="Date",
+      fixedrange=False # allows zooming on x-axis
     ),
-    yaxis=dict(title="Normalized price", side="left"),
+    yaxis=dict(
+      title="Normalized price",
+      side="left",
+      fixedrange=True # prevent zooming on y-axis
+    ),
     yaxis2=dict(
-        title="Premium", overlaying="y", side="right", showgrid=False
+      title="Premium",
+      overlaying="y",
+      side="right",
+      showgrid=False,
+      fixedrange=True # prevents zooming on secondary y-axis
     ),
     legend=dict(x=0, y=1),
+    dragmode='pan',
     template="plotly_dark"
 )
 
@@ -85,10 +97,10 @@ if args.output:
     output_dir = os.path.dirname(args.output)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)  # Ensure directory exists
-    fig.write_html(args.output)
+    fig.write_html(args.output, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
     print(f"Graph saved to {args.output}")
 else:
-    fig.show()
+    fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 
 # eof
 
