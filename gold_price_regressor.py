@@ -32,7 +32,9 @@ parser.add_argument("--output", type=str, default=None, help="Output file path f
 args = parser.parse_args()
 
 years_window=3 # years span
+#years_window=20 # years span
 price_gap=0.05 # for gap detector, 5%
+MAX_ATTEMPTS = 5 # max retry count for downloading the data frame
 
 # Try to load API key from environment variable
 fred_api_key = os.getenv("FRED_API_KEY")
@@ -53,10 +55,12 @@ print("API key loaded successfully.")  # For debugging purposes
 
 # Define the time period (last {years_window} years)
 #end_date = datetime.today().strftime('%Y-%m-%d')
-end_date = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+#end_date = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+end_date = (datetime.today() + timedelta(days=1))
 
 print(f"end_date: {end_date}")
-start_date = (datetime.today() - timedelta(days=years_window*365)).strftime('%Y-%m-%d')
+#start_date = (datetime.today() - timedelta(days=years_window*365)).strftime('%Y-%m-%d')
+start_date = (datetime.today() - timedelta(days=years_window*365))
 print(f"start_date: {start_date}")
 
 # Define tickers for yfinance
@@ -70,9 +74,26 @@ tickers = {
 # Fetch data from yfinance
 data = {}
 for key, ticker in tickers.items():
-    df = yf.download(ticker, start=start_date, end=end_date, auto_adjust=False)[["Close"]]
-    if df is not None and not df.empty:
+  attempt = 0
+  _start_date = start_date
+  while attempt < MAX_ATTEMPTS:
+    try:
+      df = yf.download(ticker, start=_start_date, end=end_date, auto_adjust=False)[["Close"]]
+      if df is not None and not df.empty:
         data[key] = df["Close"].squeeze()
+        break # Success
+      else:
+        print(f"No data retrieved for {key} ({ticker}) with start_date {_start_date.date()}")
+        raise ValueError("Empty DataFrame returned")
+    except Exception as e:
+      print(f"Error downloading {key} ({ticker}) with start_date {_start_date.date()}: {e}")
+      attempt += 1
+      if attempt < MAX_ATTEMPTS:
+          _start_date = _start_date - timedelta(days=1)  # Fall back one day
+          print(f"Retrying with start_date {_start_date.date()} (attempt {attempt + 1}/{MAX_ATTEMPTS})")
+      else:
+          print(f"Failed to download {key} ({ticker}) after {MAX_ATTEMPTS} attempts.")
+          data[key] = pd.Series(dtype=float)  # Empty series as fallback
 
 # Convert dictionary to DataFrame
 df_yf = pd.DataFrame(data)
@@ -110,6 +131,19 @@ df_yf["sp500"] = df_yf["sp500"].ffill()
 print('----df_yf with latest update:')
 print(df_yf.tail())
 
+start_date = start_date.strftime('%Y-%m-%d')
+end_date = end_date.strftime('%Y-%m-%d')
+# Fetch 2-Year Treasury Yield from FRED (if API key available)
+if fred_api_key:
+    from fredapi import Fred
+    fred = Fred(api_key=fred_api_key)
+    treasury_2y_series = fred.get_series("DGS2", start_date, end_date)
+    df_fred = pd.DataFrame(treasury_2y_series, columns=["treasury_2y"])
+    df_fred.index = pd.to_datetime(df_fred.index)
+    df_fred = df_fred.ffill()
+else:
+    df_fred = None
+print('----df_fred:')
 # Fetch 2-Year Treasury Yield from FRED (if API key available)
 if fred_api_key:
     from fredapi import Fred

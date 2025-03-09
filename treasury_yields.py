@@ -28,7 +28,10 @@ with open('credentials/credential_fred_api.txt', 'r') as file:
 fred = Fred(api_key=fred_api_key)
 
 # Get US 10-year Treasury yield data (series ID: DGS10)
-end_date = datetime.now()
+#end_date = datetime.now()
+#start_date = end_date - timedelta(days=365*10)  # 10 years of data
+# Get US 10-year Treasury yield data (series ID: DGS10)
+end_date = datetime.now().date() - timedelta(days=1)  # Use yesterday to avoid future dates
 start_date = end_date - timedelta(days=365*10)  # 10 years of data
 us_treasury = fred.get_series('DGS10', start_date, end_date)
 us_treasury = us_treasury.dropna()

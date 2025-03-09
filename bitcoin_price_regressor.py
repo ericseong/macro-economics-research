@@ -38,6 +38,11 @@ PERCENT_GAP_THRESHOLD = 0.15  # Default 15%, adjust as needed
 # ✅ Configurable period to investigate and to regress the bitcoin price
 YEAR_WINDOW = 7
 
+# ✅ we retry downloading after changing the start_date.
+# This backup has been added to avoid download failure, specifically for VIX,
+# for a specific start_date with yfinance
+MAX_ATTEMPTS = 5
+
 # Load FRED API key
 # Try to load API key from environment variable
 fred_api_key = os.getenv("FRED_API_KEY")
@@ -75,14 +80,28 @@ tickers = {
     '^VIX': 'VIX Index'
 }
 
-# Download data from Yahoo Finance
+# Download data from Yahoo Finance with some retry trials
 data = {}
 for ticker, name in tickers.items():
-    try:
-        df = yf.download(ticker, start=start_date, end=end_date, auto_adjust=False)
-        data[name] = df['Adj Close'].squeeze() if 'Adj Close' in df.columns else df['Close'].squeeze()
-    except Exception as e:
-        print(f"Error downloading {name} data: {e}")
+    attempt = 0
+    _start_date = start_date
+    while attempt < MAX_ATTEMPTS:
+        try:
+            df = yf.download(ticker, start=_start_date, end=end_date, auto_adjust=False)
+            if df.empty:
+                print(f"No data retrieved for {name} ({ticker} with start_date {_start_date.date()}")
+                raise ValueError("Empty DataFrame returned")
+            data[name] = df['Adj Close'].squeeze() if 'Adj Close' in df.columns else df['Close'].squeeze()
+            print(f"In {attempt}th trial, downloaded {name}: {len(data[name])} rows (start_date: {_start_date.date()})")
+            break
+        except Exception as e:
+            print(f"Error downloading {name} data: {e}")
+            attempt += 1
+            if attempt < MAX_ATTEMPTS:
+                _start_date = _start_date - timedelta(days=1)
+            else:
+              print(f"Failed to download {name} ({ticker}) after {MAX_ATTEMPTS} attempts.")
+              data[name] = pd.Series(dtype=float)
 
 # Get 2-Year US Treasury Yield data from FRED
 try:
@@ -120,6 +139,25 @@ missing_features = [feature for feature in expected_features if feature not in d
 
 if missing_features:
     print(f"Warning: The following features are missing: {missing_features}")
+
+'''
+# debug
+df_test = df.loc[datetime(2018, 3, 1):datetime(2018, 3, 15), expected_features]
+print(df_test)
+# end of debug
+
+# make sure the the S&P 500 data is valid for the earliest day
+while not df.empty:
+  earliest_date = df.index.min()
+  if pd.isna(df.loc[earliest_date, 'S&P 500']):
+    df = df.drop(earliest_date)
+  else:
+    break
+# debug
+df_test = df.loc[datetime(2018, 3, 1):datetime(2018, 3, 15), expected_features]
+print(df_test)
+# end of debug
+'''
 
 # Ensure the index stays daily-based
 df = df.asfreq('D', method='ffill')  # Maintain daily granularity
