@@ -17,7 +17,9 @@ import yfinance as yf
 warnings.warn(
     "Without downloading Japan 10-year treasury yield data manually, "
     "the chart is to be drawn with outdated data! You can download the data from "
-    "https://www.wsj.com/market-data/quotes/bond/BX/TMBMKJP-10Y/historical-prices",
+    "https://www.wsj.com/market-data/quotes/bond/BX/TMBMKJP-10Y/historical-prices"
+    "https://www.wsj.com/market-data/quotes/bond/BX/TMUBMUSD10Y/historical-prices"
+    "Make sure the name of the data is to be JP.csv and US.csv",
     category=UserWarning
 )
 
@@ -27,6 +29,7 @@ if response not in ['yes', 'y']:
     print("Execution stopped. Please update the Japan 10-year treasury yield data and try again.")
     exit()
 
+'''
 # Read FRED API key
 with open('credentials/credential_fred_api.txt', 'r') as file:
     fred_api_key = file.read().strip()
@@ -35,12 +38,6 @@ with open('credentials/credential_fred_api.txt', 'r') as file:
 fred = Fred(api_key=fred_api_key)
 
 # Get US 10-year Treasury yield data (series ID: DGS10)
-#end_date = datetime.now()
-#start_date = end_date - timedelta(days=365*10)  # 10 years of data
-# Get US 10-year Treasury yield data (series ID: DGS10)
-#end_date = datetime.now().date() - timedelta(days=1)  # Use yesterday to avoid future dates
-end_date = datetime.now().date()
-start_date = end_date - timedelta(days=365*10)  # 10 years of data
 us_treasury = fred.get_series('DGS10', start_date, end_date)
 print('us_treasury')
 print(us_treasury)
@@ -54,14 +51,26 @@ us_treasury_df = pd.DataFrame({
 us_treasury_df['Open'] = us_treasury_df['Close'].shift(1, fill_value=us_treasury_df['Close'].iloc[0])
 us_treasury_df['High'] = us_treasury_df['Close'] * 1.005
 us_treasury_df['Low'] = us_treasury_df['Close'] * 0.995
+'''
+
+end_date = datetime.now().date()
+start_date = end_date - timedelta(days=365*10)  # 10 years of data
 
 # Read Japan 10-year Treasury yield from CSV
-japan_treasury = pd.read_csv('HistoricalPrices.csv')
+japan_treasury = pd.read_csv('JP.csv')
 print('japan_treasury')
 print(japan_treasury)
 japan_treasury.columns = japan_treasury.columns.str.strip()
 japan_treasury['Date'] = pd.to_datetime(japan_treasury['Date'], format='%m/%d/%y')
 japan_treasury = japan_treasury.sort_values('Date')
+
+# Read Japan 10-year Treasury yield from CSV
+us_treasury = pd.read_csv('US.csv')
+print('us_treasury')
+print(us_treasury)
+us_treasury.columns = us_treasury.columns.str.strip()
+us_treasury['Date'] = pd.to_datetime(us_treasury['Date'], format='%m/%d/%y')
+us_treasury = us_treasury.sort_values('Date')
 
 # Get NASDAQ data using yfinance
 nasdaq = yf.download('^IXIC', start=start_date, end=end_date, auto_adjust=False)
@@ -72,7 +81,7 @@ nasdaq.columns = ['Date', 'Open_NQ', 'High_NQ', 'Low_NQ', 'Close_NQ']  # Rename 
 
 # Merge the dataframes
 merged_df = pd.merge_asof(
-    us_treasury_df,
+    us_treasury,
     japan_treasury[['Date', 'Open', 'High', 'Low', 'Close']],
     on='Date',
     direction='nearest',
