@@ -29,6 +29,7 @@ since = exchange.parse8601('2014-01-01T00:00:00Z')  # Fetch data from 2014 onwar
 # Fetch data
 try:
     data = fetch_historical_data(exchange, symbol, timeframe, since)
+    print(data)
 except Exception as e:
     print(f"Error fetching data: {e}")
     exit()
@@ -104,21 +105,28 @@ for date in halving_dates:
 # Update layout
 fig.update_layout(
     title='BTC/USD Weekly OHLC and Volume with Halving Events (Log Scale, Kraken)',
-    xaxis_title='Date',
-    yaxis_title='Price (USD, Log Scale)',
-    yaxis_type='log',
-    yaxis_range=[2, 7],
-    xaxis_range=[datetime(2014, 1, 1), datetime(2034, 12, 31)],
-    xaxis_showgrid=True,
-    yaxis_showgrid=True,
+    xaxis=dict(
+      title='Date',
+      range=[datetime(2014, 1, 1), datetime(2034, 12, 31)],
+      showgrid=True,
+      fixedrange=False # allow zooming on x-axis
+    ),
+    yaxis=dict(
+      title='Price (USD, Log Scale)',
+      type='log',
+      range=[2, 7],
+      showgrid=True,
+      fixedrange=True # prevents zooming on y-axis
+    ),
     template='plotly_dark',
+    dragmode='pan',
     showlegend=True
 )
 
 # Save to file or open in web browser
 if args.output:
-    fig.write_html(args.output)
+    fig.write_html(args.output, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
     print(f"Chart saved as {args.output}")
 else:
-    fig.show()
+    fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 

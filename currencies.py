@@ -54,7 +54,7 @@ def normalize_data(data):
     return normalized
 
 def create_chart(normalized_data, output_file=None):
-    fig = go.Figure(layout_template='plotly_dark')
+    fig = go.Figure()
 
     for symbol, series in normalized_data.items():
         # Change label format from currency/USD to DXY/currency
@@ -82,27 +82,34 @@ def create_chart(normalized_data, output_file=None):
 
     fig.update_layout(
         title='Currency Comparison (Normalized to DXY Start Value)',
-        xaxis_title='Date',
-        yaxis_title='Value (Normalized to DXY Starting Point)',
         legend_title='Currencies',
         hovermode='x unified',
         xaxis=dict(
             rangeslider=dict(visible=True),
-            type='date'
-        )
+            title='Date',
+            type='date',
+            fixedrange=False # allows zooming on x-axis
+        ),
+        yaxis=dict(
+          title='Value (Normalized to DXY Starting Point)',
+          fixedrange=True # prevents zooming on y-axis
+        ),
+        dragmode='pan',
+        template='plotly_dark'
     )
 
     if output_file:
-        fig.write_html(output_file)
+        fig.write_html(output_file, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
         print(f"Chart saved as {output_file}")
     else:
-        fig.show()
+        fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 
 def main():
     args = parse_arguments()
 
     print(f"Fetching {args.years} years of data for {args.currencies}")
     raw_data = fetch_currency_data(args.currencies, args.years)
+    print(raw_data)
 
     if not raw_data:
         print("No data fetched. Exiting.")

@@ -32,7 +32,6 @@ parser.add_argument("--output", type=str, default=None, help="Output file path f
 args = parser.parse_args()
 
 years_window=3 # years span
-#years_window=20 # years span
 price_gap=0.05 # for gap detector, 5%
 MAX_ATTEMPTS = 5 # max retry count for downloading the data frame
 
@@ -54,8 +53,6 @@ if not fred_api_key:
 print("API key loaded successfully.")  # For debugging purposes
 
 # Define the time period (last {years_window} years)
-#end_date = datetime.today().strftime('%Y-%m-%d')
-#end_date = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
 end_date = (datetime.today() + timedelta(days=1))
 
 print(f"end_date: {end_date}")
@@ -257,52 +254,9 @@ fig.add_annotation(
   font=dict(size=12)
 )
 
-'''
-# Add regression formula annotation
-fig.add_annotation(
-    x=df.index[len(df) // 2],
-    y=df["gold_price"].max(),
-    text=regression_formula,
-    showarrow=False,
-    font=dict(size=10, color="black"),
-    align="left",
-    bordercolor="black",
-    borderwidth=1,
-    bgcolor="white"
-)
-
-# Add R-squared annotation
-fig.add_annotation(
-    x=df.index[len(df) // 2],
-    y=df["gold_price"].max() * 0.95,
-    text=r_squared_text,
-    showarrow=False,
-    font=dict(size=10, color="black"),
-    align="left",
-    bordercolor="black",
-    borderwidth=1,
-    bgcolor="white"
-)
-
-# Add VIF annotation
-fig.add_annotation(
-    x=df.index[len(df) // 2],
-    y=df["gold_price"].max() * 0.90,
-    text=vif_text.replace("\n", "<br>"),
-    showarrow=False,
-    font=dict(size=12, color="black"),
-    align="left",
-    bordercolor="black",
-    borderwidth=1,
-    bgcolor="white"
-)
-'''
-
 # Add slider for zooming
 fig.update_layout(
     title=f"Actual vs Predicted Gold Price (Last {years_window} Years) with Buy/Sell Signals",
-    #xaxis_title="Date",
-    #yaxis_title="Gold Price (USD)",
     legend_title="Legend",
     xaxis=dict(
         rangeslider=dict(visible=True),
@@ -317,16 +271,6 @@ fig.update_layout(
     dragmode='pan',
     template='plotly_dark'
 )
-'''
-fig.update_layout(
-    legend=dict(
-        x=1.02, # move outside the right side
-        y=1, # align with the top
-        xanchor='left',
-        yanchor='top'
-    )
-)
-'''
 
 # Save the plot to an HTML file if output is provided, otherwise show it in the browser
 if args.output:
