@@ -130,43 +130,57 @@ def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
         go.Scatter(x=buy_dates,
                    y=buy_prices,
                    mode='markers',
-                   marker=dict(symbol='triangle-up', color='white', size=10),
+                   marker=dict(symbol='triangle-up', color='white', size=8),
                    name="Buy"))
     fig.add_trace(
-        go.Scatter(x=sell_dates,
-                   y=sell_prices,
-                   mode='markers',
-                   marker=dict(symbol='triangle-down', color='yellow', size=10),
-                   name="Sell"))
+        go.Scatter(
+            x=sell_dates,
+            y=sell_prices,
+            mode='markers',
+            marker=dict(
+                symbol='triangle-down',
+                color='rgba(0,0,0,0)',  # transparent fill
+                size=8,
+                line=dict(color='yellow', width=2)),
+            name="Sell"))
     fig.update_layout(
         title="Trading Simulation with SPY and VIX",
         xaxis=dict(
-          rangeslider=dict(visible=True),
-          type='date',
-          fixedrange=False # allow zooming on x-axis
+            rangeslider=dict(visible=True),
+            type='date',
+            fixedrange=False  # allow zooming on x-axis
         ),
         #xaxis_title="Date",
         yaxis=dict(
-          title="SPY Price",
-          side="left",
-          fixedrange=True # prevents zooming on y-axis
+            title="SPY Price",
+            side="left",
+            fixedrange=True  # prevents zooming on y-axis
         ),
         yaxis2=dict(
-          title="VIX",
-          overlaying="y",
-          side="right",
-          fixedrange=True # prevents zooming on secondary y-axis
+            title="VIX",
+            overlaying="y",
+            side="right",
+            fixedrange=True  # prevents zooming on secondary y-axis
         ),
         legend=dict(x=0, y=1),
         dragmode='pan',
-        template='plotly_dark'
-    )
+        template='plotly_dark')
 
     if output_file:
-        fig.write_html(output_file, config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d'], 'modeBarButtonsToRemove': ['zoom2d']})
+        fig.write_html(output_file,
+                       config={
+                           'scrollZoom': True,
+                           'modeBarButtonsToAdd': ['pan2d'],
+                           'modeBarButtonsToRemove': ['zoom2d']
+                       })
         print(f"Graph saved to {output_file}")
     else:
-        fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d'], 'modeBarButtonsToRemove': ['zoom2d']})
+        fig.show(
+            config={
+                'scrollZoom': True,
+                'modeBarButtonsToAdd': ['pan2d'],
+                'modeBarButtonsToRemove': ['zoom2d']
+            })
 
 
 if __name__ == "__main__":

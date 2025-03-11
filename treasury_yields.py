@@ -17,8 +17,8 @@ import yfinance as yf
 warnings.warn(
     "Without downloading Japan 10-year treasury yield data manually, "
     "the chart is to be drawn with outdated data! You can download the data from "
-    "https://www.wsj.com/market-data/quotes/bond/BX/TMBMKJP-10Y/historical-prices"
-    "https://www.wsj.com/market-data/quotes/bond/BX/TMUBMUSD10Y/historical-prices"
+    "https://www.wsj.com/market-data/quotes/bond/BX/TMBMKJP-10Y/historical-prices "
+    "https://www.wsj.com/market-data/quotes/bond/BX/TMUBMUSD10Y/historical-prices "
     "Make sure the name of the data is to be JP.csv and US.csv",
     category=UserWarning
 )
