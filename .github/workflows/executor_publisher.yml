@@ -2,9 +2,19 @@ name: Daily Execute and HTML Update
 
 on:
   schedule:
-    - cron: '31 14 * * *' # 11:31 PM KST (14:31 UTC)
-    - cron: '1 0 * * *'  # 9:01 AM KST (00:01 UTC)
-    - cron: '0 3 * * *'  # 12:00 PM KST (03:00 UTC)
+    - cron: '31 14 * * *' # 22:31 KST (14:31 UTC)
+    - cron: '31 15 * * *' # 23:31 KST (15:31 UTC)
+    - cron: '31 16 * * *' # 00:31 KST (16:31 UTC)
+    - cron: '31 17 * * *' # 01:31 KST (17:31 UTC)
+    - cron: '31 22 * * *' # 06:31 KST (22:31 UTC)
+    - cron: '1 0 * * *'  # 9:01 KST (00:01 UTC)
+    - cron: '1 1 * * *'  # 10:01 KST (01:01 UTC)
+    - cron: '1 2 * * *'  # 11:01 KST (02:01 UTC)
+    - cron: '1 3 * * *'  # 12:01 KST (03:00 UTC)
+    - cron: '1 4 * * *'  # 13:01 KST (04:00 UTC)
+    - cron: '1 5 * * *'  # 14:01 KST (05:00 UTC)
+    - cron: '1 6 * * *'  # 15:01 KST (06:00 UTC)
+    - cron: '1 7 * * *'  # 16:01 KST (07:00 UTC)
 
   workflow_dispatch:  # Allows manual execution
 
