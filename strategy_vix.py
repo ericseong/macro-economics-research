@@ -2,25 +2,97 @@ import argparse
 import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import pandas as pd
 
+def download_data(ticker, start_date, end_date, retry_count=5, column=None):
+    if isinstance(start_date, str):
+        _start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    else:
+        _start_date = start_date
+    end_date = datetime.strptime(end_date, "%Y-%m-%d") if isinstance(end_date, str) else end_date
+
+    attempt = 0
+
+    while attempt <= retry_count:
+        try:
+            print(f"Attempt {attempt + 1}: Downloading {ticker} from {_start_date} to {end_date}")
+            data = yf.download(ticker, start=_start_date, end=end_date)
+
+            if data.empty:
+                raise ValueError(f"No data returned for {ticker}, possibly no trading data for this date.")
+
+            print(f"Columns for {ticker}: {data.columns.tolist()}")
+
+            if column:
+                if isinstance(data.columns, pd.MultiIndex):
+                    level_0_names = data.columns.get_level_values(0).tolist()
+                    level_1_names = data.columns.get_level_values(1).tolist()
+                    if ticker in level_1_names:
+                        if (column, ticker) in data.columns:
+                            return data[(column, ticker)]
+                        else:
+                            raise KeyError(f"Column {column} not found in (Price, Ticker) multi-level index for {ticker}")
+                    elif ticker in level_0_names:
+                        if (ticker, column) in data.columns:
+                            return data[(ticker, column)]
+                        else:
+                            raise KeyError(f"Column {column} not found in (Ticker, Price) multi-level index for {ticker}")
+                    else:
+                        raise KeyError(f"Ticker {ticker} not found in multi-level index")
+                else:
+                    if column in data.columns:
+                        return data[column]
+                    else:
+                        raise KeyError(f"Column {column} not found in single-level index for {ticker}")
+            return data
+
+        except Exception as e:
+            print(f"Failed to download {ticker}: {e}")
+            if attempt == retry_count:
+                print(f"Max retries ({retry_count}) reached for {ticker}. Returning empty data.")
+                return None
+            _start_date -= timedelta(days=1)
+            attempt += 1
 
 def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     amount_trading = float(amount_trading)
     end_date = datetime.today()
     start_date = end_date - timedelta(days=4 * 365)
 
-    spy = yf.download("SPY", start=start_date, end=end_date, group_by="ticker")
-    spy.columns = spy.columns.droplevel(0)
-    vix = yf.download("^VIX", start=start_date, end=end_date)["Close"]
+    # Download SPY data
+    spy = download_data("SPY", start_date, end_date)
+    if spy is not None:
+      if isinstance(spy.columns, pd.MultiIndex):
+        spy.columns = spy.columns.droplevel(1)
+      spy['100_MA'] = spy['Close'].rolling(window=100, min_periods=100).mean()
+      spy['200_MA'] = spy['Close'].rolling(window=200, min_periods=200).mean()
+      print('spy (before merging VIX):')
+      print(spy.tail())
+      print(f"SPY columns after processing: {spy.columns.tolist()}")
+    else:
+        spy = None  # Ensure spy is None if download fails
 
-    if spy.empty or vix.empty:
+    # Download VIX data (only "Close" column)
+    vix = download_data("^VIX", start_date, end_date, column="Close")
+    #vix = download_data("^VIX", start_date, end_date)
+    if vix is None:
+      exit(1)
+    print('vix:')
+    print(vix)
+
+    # Merge VIX into SPY DataFrame
+    if spy is not None and vix is not None:
+        spy['VIX'] = vix  # Add VIX Close prices as a new column in spy
+        print('spy (after merging VIX):')
+        print(spy.tail())
+        print(f"Final SPY columns: {spy.columns.tolist()}")
+
+    # Check if either dataset is empty or None
+    if spy is None or vix is None or spy.empty or vix.empty:
         print("Error: Unable to retrieve data.")
-        return
-
-    spy['VIX'] = vix
-    spy = spy.dropna()
-    spy['100_MA'] = spy['Close'].rolling(window=100).mean()
-    spy['200_MA'] = spy['Close'].rolling(window=200).mean()
+        # return  # Uncomment this if this code is inside a function
+    else:
+        print("Data retrieval successful!")
 
     cash = 300000
     holdings = 0

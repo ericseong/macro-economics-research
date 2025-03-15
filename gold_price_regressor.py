@@ -160,12 +160,38 @@ df = df.ffill()
 print('----df after merging all datasets:')
 print(df)
 
+# check if the first row has any Nan values. Such condition cause exception at
+# the time when we try fitting the regression model. So, we want to avoid the
+# case by getting rid of the row of the oldest data if it contains any NaN.
+# Check if the first row has any NaN values
+# Maximum 5 iterations to remove the oldest date if it contains NaNs
+max_trials = 5
+trial = 0
+
+while trial < max_trials:
+    oldest_date = df.index.min()  # Get the oldest date
+    if df.loc[oldest_date].isna().any():  # Check if any NaN exists in that row
+        df = df.drop(oldest_date)  # Drop the row of the oldest date
+        trial += 1
+    else:
+        break  # Stop if no NaN is found
+
 # Define independent variables
 X = df[["dollar_index", "treasury_2y", "sp500", "vix"]]
 y = df["gold_price"]
 
 # Add constant for regression
 X = sm.add_constant(X)
+
+# debug
+'''
+# Check for NaN values
+print(f"X.isna().sum(): {X.isna().sum()}")
+
+# Check for Infinity values
+print(f"(X == np.inf).sum(): {(X == np.inf).sum()}")
+print(f"(X == -np.inf).sum(): {(X == -np.inf).sum()}")
+'''
 
 # Fit the regression model
 model = sm.OLS(y, X).fit()

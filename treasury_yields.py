@@ -64,7 +64,7 @@ japan_treasury.columns = japan_treasury.columns.str.strip()
 japan_treasury['Date'] = pd.to_datetime(japan_treasury['Date'], format='%m/%d/%y')
 japan_treasury = japan_treasury.sort_values('Date')
 
-# Read Japan 10-year Treasury yield from CSV
+# Read US 10-year Treasury yield from CSV
 us_treasury = pd.read_csv('US.csv')
 print('us_treasury')
 print(us_treasury)
@@ -74,28 +74,49 @@ us_treasury = us_treasury.sort_values('Date')
 
 # Get NASDAQ data using yfinance
 nasdaq = yf.download('^IXIC', start=start_date, end=end_date, auto_adjust=False)
+print('nasdaq')
+print(nasdaq)
 # Reset index and rename columns explicitly
 nasdaq = nasdaq.reset_index()
 nasdaq = nasdaq[['Date', 'Open', 'High', 'Low', 'Close']]
 nasdaq.columns = ['Date', 'Open_NQ', 'High_NQ', 'Low_NQ', 'Close_NQ']  # Rename to avoid conflicts
 
-# Merge the dataframes
+# After reading the data
+all_dates = pd.concat([
+    us_treasury[['Date']],
+    japan_treasury[['Date']],
+    nasdaq[['Date']]
+]).drop_duplicates().sort_values('Date')
+
 merged_df = pd.merge_asof(
+    all_dates,
     us_treasury,
+    on='Date',
+    direction='forward'
+)
+merged_df = pd.merge_asof(
+    merged_df,
     japan_treasury[['Date', 'Open', 'High', 'Low', 'Close']],
     on='Date',
-    direction='nearest',
+    direction='forward',
     suffixes=('_US', '_JP')
 )
-
 merged_df = pd.merge_asof(
     merged_df,
     nasdaq[['Date', 'Open_NQ', 'High_NQ', 'Low_NQ', 'Close_NQ']],
     on='Date',
-    direction='nearest'
+    direction='forward'
 )
 
-# Calculate daily gap using closing prices
+merged_df = merged_df.astype({
+    'Open_US': 'float64', 'High_US': 'float64', 'Low_US': 'float64', 'Close_US': 'float64',
+    'Open_JP': 'float64', 'High_JP': 'float64', 'Low_JP': 'float64', 'Close_JP': 'float64',
+    'Open_NQ': 'float64', 'High_NQ': 'float64', 'Low_NQ': 'float64', 'Close_NQ': 'float64'
+})
+
+if merged_df.iloc[-1].isna().any():
+    merged_df.iloc[-1] = merged_df.iloc[-1].fillna(merged_df.iloc[-2])
+
 merged_df['Yield_Gap'] = merged_df['Close_US'] - merged_df['Close_JP']
 
 # Create color condition for bars
