@@ -44,8 +44,8 @@ jobs:
 
       - name: Run Python Script
         run: |
-          python bitcoin_price_regressor.py --output=docs/bitcoin.html 
-          python gold_price_regressor.py --output=docs/gold.html 
+          python bitcoin_price_regressor.py --years=7 --output=docs/bitcoin.html 
+          python gold_price_regressor_with_normalization.py --years=3 --output=docs/gold.html 
           python gold_gaps_korea.py --output=docs/gold_gap.html 
           python strategy_vix.py 15.0 25.0 1 --output=docs/vix.html
           python bitcoin.py --output=docs/bitcoin_long_term.html
