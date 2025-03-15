@@ -32,11 +32,20 @@ from datetime import datetime, timedelta
 from sklearn.preprocessing import StandardScaler
 from fredapi import Fred
 
+# Add argument parser
+parser = argparse.ArgumentParser(
+    description="Bitcoin Price Prediction and Analysis")
+parser.add_argument("--output",
+                    type=str,
+                    help="Output HTML file to save the graph")
+parser.add_argument("--years",
+                    type=int,
+                    default=7,
+                    help="Number of years for data retrieval.")
+args = parser.parse_args()
+
 # ✅ Configurable Percentage Gap for Buy/Sell Signals
 PERCENT_GAP_THRESHOLD = 0.15  # Default 15%, adjust as needed
-
-# ✅ Configurable period to investigate and to regress the bitcoin price
-YEAR_WINDOW = 7
 
 # ✅ we retry downloading after changing the start_date.
 # This backup has been added to avoid download failure, specifically for VIX,
@@ -73,7 +82,7 @@ fred = Fred(api_key=fred_api_key)
 
 # Define the time range
 end_date = datetime.now()
-start_date = end_date - timedelta(days=YEAR_WINDOW * 365)
+start_date = end_date - timedelta(days=args.years * 365)
 
 # Define ticker symbols for explanatory variables
 tickers = {
@@ -303,7 +312,8 @@ if all(feature in df.columns for feature in expected_features):
                        font=dict(size=12))
 
     fig.update_layout(
-        title='Predicted vs Actual Bitcoin Prices',
+        title=
+        f'Predicted vs Actual Bitcoin Price for the recent {args.years} years with normalized factors',
         xaxis=dict(
             rangeslider=dict(visible=True),
             type='date',
@@ -324,14 +334,6 @@ if all(feature in df.columns for feature in expected_features):
 
 
 def main():
-    # Add argument parser
-    parser = argparse.ArgumentParser(
-        description="Bitcoin Price Prediction and Analysis")
-    parser.add_argument("--output",
-                        type=str,
-                        help="Output HTML file to save the graph")
-    args = parser.parse_args()
-
     # Check if an output file is specified
     if args.output:
         fig.write_html(args.output,

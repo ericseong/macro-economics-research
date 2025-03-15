@@ -172,6 +172,7 @@ model = sm.OLS(y, X).fit()
 
 # Get regression coefficients
 coeffs = model.params
+
 r_squared = model.rsquared
 print("----coeffs:")
 print(coeffs)
