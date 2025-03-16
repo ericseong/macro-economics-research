@@ -6,6 +6,7 @@ See .github/workflows/*.yml for the automated execution and publishing .htmls.
 Resulting pages are at:
 - https://ericseong.github.io/macro-economics-research/bitcoin_long_term.html
 - https://ericseong.github.io/macro-economics-research/bitcoin.html
+- https://ericseong.github.io/macro-economics-research/bitcoin_gap.html
 - https://ericseong.github.io/macro-economics-research/gold.html
 - https://ericseong.github.io/macro-economics-research/gold_gap.html
 - https://ericseong.github.io/macro-economics-research/vix.html
