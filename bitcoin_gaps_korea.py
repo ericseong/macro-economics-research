@@ -46,16 +46,11 @@ def get_binance_btc_price():
     return df[["close"]].sort_index()
 '''
 
-import requests
-import pandas as pd
-from pytz import timezone
-
-KST = timezone("Asia/Seoul")
-
 def get_binance_btc_price(days_to_fetch=1000):
     url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": "BTCUSDT", "interval": "1d", "limit": min(days_to_fetch, 1000)}
     response = requests.get(url, params=params)
+    print(f"Response from binance - Status Code: {response.status_code}, Response: {response.text}")
 
     if response.status_code != 200:
         raise Exception(f"Error fetching Binance data: {response.status_code}, {response.text}")
