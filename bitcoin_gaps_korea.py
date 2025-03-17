@@ -19,12 +19,15 @@ args = parser.parse_args()
 # Compute the total days based on the provided year span
 days_to_fetch = args.years * 365
 
+'''
 # Function to fetch BTC/USD price from Binance and convert to KST
 def get_binance_btc_price():
     url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": "BTCUSDT", "interval": "1d", "limit": min(days_to_fetch, 1000)}  # Binance allows up to 1000 days in one request
     response = requests.get(url, params=params)
     data = response.json()
+    print("data received from binance:")
+    print(data)
 
     df = pd.DataFrame(data)
     expected_columns = ["timestamp", "open", "high", "low", "close", "volume",
@@ -36,6 +39,52 @@ def get_binance_btc_price():
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms").dt.tz_localize("UTC").dt.tz_convert(KST)
     df.set_index("timestamp", inplace=True)
     df["close"] = df["close"].astype(float)
+
+    # Ensure unique timestamps
+    df = df[~df.index.duplicated(keep="first")]
+
+    return df[["close"]].sort_index()
+'''
+
+import requests
+import pandas as pd
+from pytz import timezone
+
+KST = timezone("Asia/Seoul")
+
+def get_binance_btc_price(days_to_fetch=1000):
+    url = "https://api.binance.com/api/v3/klines"
+    params = {"symbol": "BTCUSDT", "interval": "1d", "limit": min(days_to_fetch, 1000)}
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Error fetching Binance data: {response.status_code}, {response.text}")
+
+    data = response.json()
+
+    # Validate the data structure before proceeding
+    if not isinstance(data, list) or len(data) == 0 or not isinstance(data[0], list):
+        raise ValueError(f"Unexpected Binance response format: {data}")
+
+    print("data received from binance:", data[:2])  # Print only the first 2 rows to check structure
+
+    # Define Binance Kline column names explicitly
+    expected_columns = [
+        "timestamp", "open", "high", "low", "close", "volume",
+        "close_time", "quote_asset_volume", "num_trades",
+        "taker_buy_base", "taker_buy_quote", "ignore"
+    ]
+
+    # Create DataFrame with proper column names
+    df = pd.DataFrame(data, columns=expected_columns)
+
+    # Convert timestamp from UTC to KST
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms").dt.tz_localize("UTC").dt.tz_convert(KST)
+    df.set_index("timestamp", inplace=True)
+
+    # Convert relevant columns to float
+    numeric_cols = ["open", "high", "low", "close", "volume", "quote_asset_volume", "taker_buy_base", "taker_buy_quote"]
+    df[numeric_cols] = df[numeric_cols].astype(float)
 
     # Ensure unique timestamps
     df = df[~df.index.duplicated(keep="first")]
