@@ -14,6 +14,7 @@ KST = pytz.timezone("Asia/Seoul")
 parser = argparse.ArgumentParser(description="Bitcoin price gap analysis between Korea and US")
 parser.add_argument("--output", type=str, default=None, help="Output file path for saving the HTML graph.")
 parser.add_argument("--years", type=int, default=2, help="Number of years of historical data to fetch.")
+parser.add_argument("--dataprovider", type=str, default='binance', help="Where to fetch US bitcoin price.")
 args = parser.parse_args()
 
 # Compute the total days based on the provided year span
@@ -45,6 +46,47 @@ def get_binance_btc_price():
 
     return df[["close"]].sort_index()
 '''
+
+def get_yfinance_btc_price(days_to_fetch=730):  # Supports up to several years
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=days_to_fetch)).strftime('%Y-%m-%d')
+
+    ticker = "BTC-USD"
+    df = yf.download(ticker, start=start_date, end=end_date, interval="1d")
+
+    if df.empty:
+        raise ValueError("No data received from Yahoo Finance")
+
+    # Convert index to KST
+    df.index = df.index.tz_localize("UTC").tz_convert(KST)
+
+    return df[["Close"]].rename(columns={"Close": "close"}).sort_index()
+
+
+def get_coingecko_btc_price(days_to_fetch=1000):
+    url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+    params = {"vs_currency": "usd", "days": days_to_fetch, "interval": "daily"}
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Error fetching CoinGecko data: {response.status_code}, {response.text}")
+
+    data = response.json()
+
+    if "prices" not in data:
+        raise ValueError(f"Unexpected CoinGecko response format: {data}")
+
+    print("Data received from CoinGecko:", data["prices"][:2])  # Print first 2 rows
+
+    df = pd.DataFrame(data["prices"], columns=["timestamp", "close"])
+
+    # Convert timestamp from UTC to KST
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms").dt.tz_localize("UTC").dt.tz_convert(KST)
+    df.set_index("timestamp", inplace=True)
+    df["close"] = df["close"].astype(float)
+
+    return df.sort_index()
+
 
 def get_binance_btc_price(days_to_fetch=1000):
     url = "https://api.binance.com/api/v3/klines"
@@ -87,7 +129,7 @@ def get_binance_btc_price(days_to_fetch=1000):
     return df[["close"]].sort_index()
 
 # Function to fetch BTC/KRW price from Upbit and keep timestamps in KST
-def get_upbit_btc_price():
+def get_upbit_btc_price(days_to_fetch=1000):
     url = "https://api.upbit.com/v1/candles/days"
     headers = {"Accept": "application/json"}
 
@@ -125,7 +167,7 @@ def get_upbit_btc_price():
     return df[["close"]].sort_index()
 
 # Function to fetch USD/KRW exchange rate from Yahoo Finance and convert to KST
-def get_usd_krw():
+def get_usd_krw(days_to_fetch=1000):
     ticker = "USDKRW=X"
     start_date = (datetime.now() - timedelta(days=days_to_fetch)).strftime('%Y-%m-%d')
     data = yf.download(ticker, start=start_date, interval="1d")
@@ -138,10 +180,21 @@ def get_usd_krw():
 
     return data["Close"]
 
+'''
+# Replace Binance function with CoinGecko
+btc_usd = get_coingecko_btc_price()
+'''
+
 # Fetch Data
-btc_usd = get_binance_btc_price()
-btc_krw = get_upbit_btc_price()
-usd_krw = get_usd_krw()
+if args.dataprovider == 'coingecko':
+  btc_usd = get_coingecko_btc_price(days_to_fetch)
+elif args.dataprovider == 'yfinance':
+  btc_usd = get_yfinance_btc_price(days_to_fetch)
+else:
+  btc_usd = get_binance_btc_price(days_to_fetch)
+
+btc_krw = get_upbit_btc_price(days_to_fetch)
+usd_krw = get_usd_krw(days_to_fetch)
 
 # Merge datasets using KST timestamps
 data_cleaned = pd.concat([btc_usd, btc_krw, usd_krw], axis=1, join="inner").dropna()
@@ -184,7 +237,7 @@ fig.add_trace(go.Bar(
 
 # Layout settings
 fig.update_layout(
-    title=f"Korea Bitcoin Premium Analysis (Upbit vs Binance) - Last {args.years} Years",
+    title=f"Korea Bitcoin Premium Analysis (Upbit vs {args.dataprovider}) - Last {args.years} Years",
     xaxis=dict(
         rangeslider=dict(visible=True),
         type="date",

@@ -50,7 +50,7 @@ jobs:
           python strategy_vix.py 15.0 25.0 1 --output=docs/vix.html
           python bitcoin.py --output=docs/bitcoin_long_term.html
           python currencies.py krw eur gbp cny jpy brl inr 10 --output=docs/currencies.html
-          python bitcoin_gaps_korea.py --years=3 --output=docs/bitcoin_gap.html
+          python bitcoin_gaps_korea.py --dataprovider=yfinance --years=3 --output=docs/bitcoin_gap.html
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
 
