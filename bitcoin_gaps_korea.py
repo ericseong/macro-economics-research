@@ -219,7 +219,7 @@ fig = go.Figure()
 # Add line traces for normalized values
 fig.add_trace(go.Scatter(
     x=data_cleaned.index, y=btc_usd_norm, mode="lines",
-    line=dict(color="blue", dash="solid"),
+    line=dict(color="yellow", dash="solid"),
     name="BTC/USD (Binance) Normalized (%)", yaxis="y1"
 ))
 fig.add_trace(go.Scatter(
