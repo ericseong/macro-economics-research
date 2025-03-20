@@ -21,10 +21,10 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import yfinance as yf
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
 
 # Argument parser for optional output filename
 parser = argparse.ArgumentParser(
@@ -188,11 +188,19 @@ df = df.ffill()
 print('----df after merging all datasets:')
 print(df)
 
+# Make sure that there's no NaN value for the oldest row
+while df.loc[df.index.min()].isna().any():
+    oldest_date = df.index.min()  # Get the oldest date
+    df = df.drop(index=oldest_date)  # Drop the row with the oldest date
+print('----df after dropping the oldest row if NaN value exists:')
+print(df)
+
 # Define independent variables
 X = df[["dollar_index", "treasury_2y", "sp500", "vix"]]
 y = df["gold_price"]
 
 X_scaled = (X - X.min()) / (X.max() - X.min())  # Scale to [0,1] range
+
 X_scaled = sm.add_constant(X_scaled)  # Add constant term
 
 # Fit model with scaled features
