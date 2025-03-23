@@ -12,6 +12,19 @@ from fredapi import Fred
 from datetime import datetime, timedelta
 import warnings
 import yfinance as yf
+import argparse
+
+# Argument parsing
+parser = argparse.ArgumentParser(description='Plot US vs Japan 10-Year Treasury Yields and NASDAQ')
+parser.add_argument('--years', type=int, default=10, help='Number of years of data to fetch (default: 10)')
+parser.add_argument('--output', type=str, default=None, help='Path to output HTML file (optional)')
+args = parser.parse_args()
+
+# Use parsed arguments
+end_date = datetime.now().date()
+end_date = datetime.combine(end_date, datetime.min.time())
+start_date = end_date - timedelta(days=365 * args.years)
+start_date = datetime.combine(end_date - timedelta(days=365 * args.years), datetime.min.time())
 
 # Print warning message with clickable URL
 warnings.warn(
@@ -53,8 +66,8 @@ us_treasury_df['High'] = us_treasury_df['Close'] * 1.005
 us_treasury_df['Low'] = us_treasury_df['Close'] * 0.995
 '''
 
-end_date = datetime.now().date()
-start_date = end_date - timedelta(days=365*10)  # 10 years of data
+#end_date = datetime.now().date()
+#start_date = end_date - timedelta(days=365*10)  # 10 years of data
 
 # Read Japan 10-year Treasury yield from CSV
 japan_treasury = pd.read_csv('JP.csv')
@@ -63,6 +76,7 @@ print(japan_treasury)
 japan_treasury.columns = japan_treasury.columns.str.strip()
 japan_treasury['Date'] = pd.to_datetime(japan_treasury['Date'], format='%m/%d/%y')
 japan_treasury = japan_treasury.sort_values('Date')
+japan_treasury = japan_treasury[japan_treasury['Date'].between(start_date, end_date)]
 
 # Read US 10-year Treasury yield from CSV
 us_treasury = pd.read_csv('US.csv')
@@ -71,6 +85,7 @@ print(us_treasury)
 us_treasury.columns = us_treasury.columns.str.strip()
 us_treasury['Date'] = pd.to_datetime(us_treasury['Date'], format='%m/%d/%y')
 us_treasury = us_treasury.sort_values('Date')
+us_treasury = us_treasury[us_treasury['Date'].between(start_date, end_date)]
 
 # Get NASDAQ data using yfinance
 nasdaq = yf.download('^IXIC', start=start_date, end=end_date, auto_adjust=False)
@@ -212,5 +227,9 @@ fig.update_yaxes(
 )
 
 # Show the plot
-fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
+if args.output:
+    fig.write_html(args.output)
+    print(f"Chart saved to {args.output}")
+else:
+  fig.show(config={'scrollZoom': True, 'modeBarButtonsToAdd': ['pan2d']})
 

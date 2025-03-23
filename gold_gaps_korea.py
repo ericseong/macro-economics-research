@@ -11,13 +11,21 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # Argument parser for optional output filename
-parser = argparse.ArgumentParser(description="Gold price gap analysis between Korea and US")
-parser.add_argument("--output", type=str, default=None, help="Output file path for saving the HTML graph.")
+parser = argparse.ArgumentParser(
+  description="Gold price gap analysis between Korea and US")
+parser.add_argument("--years",
+                    type=int,
+                    default=2,
+                    help="Number of years for data retrieval.")
+parser.add_argument("--output",
+                    type=str,
+                    default=None,
+                    help="Output file path for saving the HTML graph.")
 args = parser.parse_args()
 
 # Fetch 2 years of data
 tickers = ["GLD", "411060.KS", "USDKRW=X"]
-data = yf.download(tickers, period="2y", interval="1d")
+data = yf.download(tickers, period=f"{args.years}y", interval="1d")
 print(data)
 
 # Handle NaN for today's GLD price. It's to make up the missing today's price
