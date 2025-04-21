@@ -57,7 +57,7 @@ def download_data(ticker, start_date, end_date, retry_count=5, column=None):
 def simulate_trading(vix_low, vix_high, amount_trading, output_file=None):
     amount_trading = float(amount_trading)
     end_date = datetime.today()
-    start_date = end_date - timedelta(days=4 * 365)
+    start_date = end_date - timedelta(days=20 * 365)
 
     # Download SPY data
     spy = download_data("SPY", start_date, end_date)

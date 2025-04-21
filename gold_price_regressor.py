@@ -267,7 +267,7 @@ fig.add_trace(
     go.Scatter(x=df.index,
                y=df["gold_price"],
                mode="lines",
-               name="Actual Gold Price",
+               name=f"Actual Gold Price ({tickers['gold_price']})",
                line=dict(color="gold")))
 
 # Add predicted gold price trace
