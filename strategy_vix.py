@@ -1,5 +1,6 @@
 import argparse
 import yfinance as yf
+from curl_cffi import requests
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
@@ -16,7 +17,8 @@ def download_data(ticker, start_date, end_date, retry_count=5, column=None):
     while attempt <= retry_count:
         try:
             print(f"Attempt {attempt + 1}: Downloading {ticker} from {_start_date} to {end_date}")
-            data = yf.download(ticker, start=_start_date, end=end_date)
+            session = requests.Session(impersonate="chrome")
+            data = yf.download(ticker, start=_start_date, end=end_date, session=session)
 
             if data.empty:
                 raise ValueError(f"No data returned for {ticker}, possibly no trading data for this date.")

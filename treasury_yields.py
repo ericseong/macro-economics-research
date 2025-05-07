@@ -12,6 +12,7 @@ from fredapi import Fred
 from datetime import datetime, timedelta
 import warnings
 import yfinance as yf
+from curl_cffi import requests
 import argparse
 
 # Argument parsing
@@ -88,7 +89,8 @@ us_treasury = us_treasury.sort_values('Date')
 us_treasury = us_treasury[us_treasury['Date'].between(start_date, end_date)]
 
 # Get NASDAQ data using yfinance
-nasdaq = yf.download('^IXIC', start=start_date, end=end_date, auto_adjust=False)
+session = requests.Session(impersonate="chrome")
+nasdaq = yf.download('^IXIC', start=start_date, end=end_date, auto_adjust=False, session=session)
 print('nasdaq')
 print(nasdaq)
 # Reset index and rename columns explicitly

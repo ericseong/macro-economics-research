@@ -1,11 +1,14 @@
+# WIP!!!!!!
+
 import os
 import argparse
 import pandas as pd
-import requests
+#import requests
 import plotly.graph_objects as go
 import yfinance as yf
 import pytz
 from datetime import datetime, timedelta
+from curl_cffi import requests
 
 # Define Korean Standard Time (KST)
 KST = pytz.timezone("Asia/Seoul")
@@ -20,39 +23,14 @@ args = parser.parse_args()
 # Compute the total days based on the provided year span
 days_to_fetch = args.years * 365
 
-'''
-# Function to fetch BTC/USD price from Binance and convert to KST
-def get_binance_btc_price():
-    url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": "BTCUSDT", "interval": "1d", "limit": min(days_to_fetch, 1000)}  # Binance allows up to 1000 days in one request
-    response = requests.get(url, params=params)
-    data = response.json()
-    print("data received from binance:")
-    print(data)
-
-    df = pd.DataFrame(data)
-    expected_columns = ["timestamp", "open", "high", "low", "close", "volume",
-                        "close_time", "quote_asset_volume", "num_trades",
-                        "taker_buy_base", "taker_buy_quote", "ignore"]
-    df.columns = expected_columns[:len(df.columns)]
-
-    # Convert timestamp from UTC to KST
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms").dt.tz_localize("UTC").dt.tz_convert(KST)
-    df.set_index("timestamp", inplace=True)
-    df["close"] = df["close"].astype(float)
-
-    # Ensure unique timestamps
-    df = df[~df.index.duplicated(keep="first")]
-
-    return df[["close"]].sort_index()
-'''
 
 def get_yfinance_btc_price(days_to_fetch=730):  # Supports up to several years
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=days_to_fetch)).strftime('%Y-%m-%d')
 
     ticker = "BTC-USD"
-    df = yf.download(ticker, start=start_date, end=end_date, interval="1d")
+    session = requests.Session(impersonate="chrome")
+    df = yf.download(ticker, start=start_date, end=end_date, interval="1d", session=session)
 
     if df.empty:
         raise ValueError("No data received from Yahoo Finance")
@@ -169,8 +147,9 @@ def get_upbit_btc_price(days_to_fetch=1000):
 # Function to fetch USD/KRW exchange rate from Yahoo Finance and convert to KST
 def get_usd_krw(days_to_fetch=1000):
     ticker = "USDKRW=X"
+    session = requests.Session(impersonate="chrome")
     start_date = (datetime.now() - timedelta(days=days_to_fetch)).strftime('%Y-%m-%d')
-    data = yf.download(ticker, start=start_date, interval="1d")
+    data = yf.download(ticker, start=start_date, interval="1d", session=session)
 
     # Convert timestamps to KST
     data.index = data.index.tz_localize("UTC").tz_convert(KST)

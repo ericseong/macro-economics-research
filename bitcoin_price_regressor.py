@@ -23,6 +23,7 @@ Note:
 import os
 import argparse
 import yfinance as yf
+from curl_cffi import requests
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -118,10 +119,12 @@ for ticker, name in tickers.items():
     _start_date = start_date
     while attempt < MAX_ATTEMPTS:
         try:
+            session = requests.Session(impersonate="chrome")
             df = yf.download(ticker,
                              start=_start_date,
                              end=end_date,
-                             auto_adjust=False)
+                             auto_adjust=False,
+                             session=session)
             if df.empty:
                 print(
                     f"No data retrieved for {name} ({ticker} with start_date {_start_date.date()}"

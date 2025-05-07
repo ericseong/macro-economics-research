@@ -23,6 +23,7 @@ import statsmodels.api as sm
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import yfinance as yf
+from curl_cffi import requests
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
@@ -87,10 +88,12 @@ for key, ticker in tickers.items():
     _start_date = start_date
     while attempt < MAX_ATTEMPTS:
         try:
+            session = requests.Session(impersonate="chrome")
             df = yf.download(ticker,
                              start=_start_date,
                              end=end_date,
-                             auto_adjust=False)[["Close"]]
+                             auto_adjust=False,
+                             session=session)[["Close"]]
             if df is not None and not df.empty:
                 data[key] = df["Close"].squeeze()
                 break  # Success
@@ -122,7 +125,8 @@ print('----df_yf:')
 print(df_yf.tail())
 
 # Fetch latest available S&P 500 price
-latest_sp500 = yf.download("^GSPC", period="1d", interval="1h")
+session = requests.Session(impersonate="chrome")
+latest_sp500 = yf.download("^GSPC", period="1d", interval="1h", session=session)
 print('latest_sp500:')
 print(latest_sp500)
 if not latest_sp500.empty:

@@ -1,5 +1,6 @@
 import argparse
 import yfinance as yf
+from curl_cffi import requests
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
@@ -24,7 +25,8 @@ def fetch_currency_data(currencies, years):
 
     for symbol in symbols:
         try:
-            ticker = yf.Ticker(symbol)
+            session = requests.Session(impersonate="chrome")
+            ticker = yf.Ticker(symbol, session=session)
             df = ticker.history(start=start_date, end=end_date)
             if not df.empty and 'Close' in df.columns:
                 # For currency pairs, invert the values to show DXY/currency

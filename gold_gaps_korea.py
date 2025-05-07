@@ -7,6 +7,7 @@ Usage: gold_gaps.py
 import os
 import argparse
 import yfinance as yf
+from curl_cffi import requests
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -25,7 +26,8 @@ args = parser.parse_args()
 
 # Fetch 2 years of data
 tickers = ["GLD", "411060.KS", "USDKRW=X"]
-data = yf.download(tickers, period=f"{args.years}y", interval="1d")
+session = requests.Session(impersonate="chrome")
+data = yf.download(tickers, period=f"{args.years}y", interval="1d", session=session)
 print(data)
 
 # Handle NaN for today's GLD price. It's to make up the missing today's price
