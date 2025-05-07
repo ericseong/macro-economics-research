@@ -1,3 +1,17 @@
+"""
+This script retrieves performance data using Yahoo Finance via crawling the web page directly.
+Performance data includes:
+- Quarterly revenue, operating margin, and net margin.
+- Trailing P/E and Forward P/E per quarter.
+- Etc
+
+**Usage:**
+    python performance.py <symbol>
+
+Example:
+    python performance.py AAPL
+"""
+
 import time
 import re
 import argparse
@@ -15,7 +29,6 @@ def clean_numeric(text):
     return float(re.sub(r"[^\d.-]", "", text)) if text not in {"", "--"
                                                                } else None
 
-
 def setup_driver():
     chromedriver_autoinstaller.install()
     options = Options()
@@ -30,21 +43,6 @@ def setup_driver():
     driver = webdriver.Chrome(options=options)
     driver.set_page_load_timeout(60)
     return driver
-
-
-"""
-def setup_driver():
-    chromedriver_autoinstaller.install()
-
-    options = Options()
-    options.page_load_strategy = 'eager'
-    options.add_argument("--headless=new")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920x1080")
-    driver = webdriver.Chrome(options=options)
-    driver.set_page_load_timeout(60)
-    return driver
-"""
 
 
 def safe_get(driver, url, retries=1):

@@ -13,6 +13,7 @@ Example:
 """
 
 import yfinance as yf
+from curl_cffi import requests
 import sys
 import pandas as pd
 
@@ -34,7 +35,8 @@ def format_number(value):
 def get_financial_data(stock_symbol):
     """Retrieve and display financial data for the given stock symbol."""
     try:
-        stock = yf.Ticker(stock_symbol)
+        session = requests.Session(impersonate="chrome")
+        stock = yf.Ticker(stock_symbol, session=session)
 
         # Fetch financials
         income_stmt = stock.quarterly_financials
