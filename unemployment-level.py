@@ -133,7 +133,7 @@ def plot_combined(unemploy_series_raw, spy_series_raw):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--years", type=int, default=3, help="Years to display (default: 3)")
+    parser.add_argument("--years", type=int, default=50, help="Years to display (default: 3)")
     args = parser.parse_args()
 
     fred_api_key = load_fred_api_key()
