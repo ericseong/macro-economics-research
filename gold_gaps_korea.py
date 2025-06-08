@@ -28,13 +28,34 @@ args = parser.parse_args()
 tickers = ["GLD", "411060.KS", "USDKRW=X"]
 session = requests.Session(impersonate="chrome")
 data = yf.download(tickers, period=f"{args.years}y", interval="1d", session=session)
+print("------- 1 (before forward fill)")
+print(data)
+
+# Forward-fill GLD, 411060.KS, and USDKRW=X based on previous day's values
+cols = ["GLD", "411060.KS", "USDKRW=X"]
+close_data = data["Close"].copy()
+
+# Forward-fill the entire DataFrame to get continuity
+ffilled = close_data[cols].ffill()
+
+# Only update rows where any of the three has a value
+any_exists = close_data[cols].notna().any(axis=1)
+close_data.loc[any_exists, cols] = ffilled.loc[any_exists]
+
+# Update back to the main DataFrame
+for ticker in cols:
+    data[("Close", ticker)] = close_data[ticker]
+
+print("------- 2 (after forward fill)")
 print(data)
 
 # Handle NaN for today's GLD price. It's to make up the missing today's price
 # due to the time difference between Korea and USA.
+'''
 if pd.isna(data.loc[data.index[-1], "Close"]["GLD"]):
     data.at[data.index[-1], ("Close", "GLD")] = data.at[data.index[-2], ("Close", "GLD")]
 print(data)
+'''
 
 # Extract OHLCV data
 gld = data["Close"]["GLD"]
