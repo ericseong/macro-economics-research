@@ -4,11 +4,16 @@ Bitcoin Price Prediction and Analysis
 As of March 3, 2025, the regression formula was:
 30191.72 + -572.18*Dollar Index + -4179.16*2-Year Treasury Yield + 27825.68*S&P 500 + -4573.38*Log Net Liquidity
 
-Ranking of impacts (the upper the highest):
-S&P 500	+27825.68	🚀 Strong Positive	Higher S&P 500 → Higher Bitcoin
-Log Net Liquidity	-4573.38	🔥 Strong Negative	Lower Liquidity → Lower Bitcoin
-2-Year Treasury Yield	-4179.16	🔻 Strong Negative	Higher Yields → Lower Bitcoin
-Dollar Index	-572.18	📉 Moderate Negative	Stronger USD → Lower Bitcoin
+Ranking of impacts:
+S&P 500:
++1% S&P 500 ≈ +0.92% BTC
+
+2-Year Treasury Yield:
++10 bps (0.10 percentage points) in the 2-year yield ≈ −0.68% BTC
+
+Comment:
+Lower liquidity -> higher bitcoin price? Since 2023, lower liquidity corresponds
+to higher bitcoin price. This is strange and not intuitive.
 
 Note:
 - Downloads Bitcoin price data and key macroeconomic indicators.
