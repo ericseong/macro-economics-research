@@ -13,6 +13,13 @@ We also render point to buy when the actual price is less than
 {price_gap} percentage of the predicted price. In a similar way, we show
 point to sell when the actuall price is more than {price_gap} percentage of the
 predicted price.
+Here’s the interpretation in your requested format, based on the regression results and the factor ranges in your sample period:
+* Dollar Index: When the dollar index changes by 1%, gold price changes by about -2.66%.
+* 2-Year Treasury Yield: When the yield changes by 1%, gold price changes by about +0.04%.
+* S&P 500: When the S&P 500 changes by 1%, gold price changes by about +1.14%.
+* VIX Index: When the VIX changes by 1%, gold price changes by about +0.33%.
+
+This means dollar strength has the largest negative impact, while S&P 500 moves have the largest positive impact in your model.
 '''
 
 import argparse
