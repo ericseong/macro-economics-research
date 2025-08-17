@@ -214,7 +214,7 @@ def fetch_yahoo_ttf(start_date: str, end_date: str) -> pd.DataFrame:
             out = s.reset_index().rename(columns={"index": "date", "Date": "date", s.name: "value"})
             out["date"] = pd.to_datetime(out["date"])
             result = out[["date", "value"]].sort_values("date")
-            print(result)
+            #print(result)
             return result
         except Exception:
             continue
@@ -277,7 +277,7 @@ def fetch_yahoo_brent(start_date: str, end_date: str) -> pd.DataFrame:
             out = s.reset_index().rename(columns={"index": "date", "Date": "date", s.name: "brent_usd_bbl"})
             out["date"] = pd.to_datetime(out["date"])
             result = out[["date", "brent_usd_bbl"]]
-            print(result)
+            #print(result)
             return result
         except Exception:
             continue
@@ -312,7 +312,7 @@ def fetch_agsi_eu_storage(start_date: str, end_date: str, api_key: str, page_siz
         with np.errstate(divide="ignore", invalid="ignore"):
             pct = 100.0 * df["gasInStorage_TWh"] / df["workingGasVolume_TWh"]
         df["storage_fill_pct"] = df["storage_fill_pct"].fillna(pct)
-    print('--- agsi eu storage')
+    print('--- EU Storage ---')
     print(df)
     return df
 
@@ -486,8 +486,8 @@ def load_or_synthesize_daily_data(n_days: int = 3 * 365, seed: int = 42) -> pd.D
 
     # 1) EU storage (AGSI+)
     agsi_key = get_agsi_api_key()
-    print('agsi_key')
-    print(agsi_key)
+    #print('agsi_key')
+    #print(agsi_key)
     if agsi_key:
         try:
             agsi = fetch_agsi_eu_storage(start_date, end_date, agsi_key).set_index("date").sort_index()
@@ -541,6 +541,8 @@ def load_or_synthesize_daily_data(n_days: int = 3 * 365, seed: int = 42) -> pd.D
             df = df.join(br_yf["brent_usd_bbl"].rename("brent_yf"), how="left")
             df["brent_usd_bbl"] = df["brent_yf"].combine_first(df["brent_usd_bbl"])
             df.drop(columns=["brent_yf"], inplace=True)
+            print("-- Brent crude oil --")
+            print(df)
             br_loaded = True
         except Exception as e:
             print("[WARN] Yahoo Brent fetch failed: {}".format(e))
@@ -571,6 +573,8 @@ def load_or_synthesize_daily_data(n_days: int = 3 * 365, seed: int = 42) -> pd.D
             df = df.join(ts["value"].rename("ttf_yf"), how="left")
             df["ttf_eur_mwh"] = df["ttf_yf"].combine_first(df["ttf_eur_mwh"])
             df.drop(columns=["ttf_yf"], inplace=True)
+            print("--- TTF EUR/MWh ---")
+            print(df)
         except Exception as e:
             print("[WARN] Yahoo TTF fetch failed: {}".format(e))
 
