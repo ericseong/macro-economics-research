@@ -4,22 +4,22 @@
 """
 IAS (Investment Attractiveness Score) calculator
 
-- Company name: fetched ONLY via yfinance (Ticker(symbol).get_info()["longName"] or ["shortName"])
-- All valuation/growth metrics: crawled from Yahoo Finance pages with Selenium (no yfinance)
+- Company name: fetched ONLY via yfinance (Ticker(symbol).get_info())
+- All valuation/growth metrics: crawled from Yahoo Finance pages with Selenium (no YF JSON APIs)
 - Horizon switch:
     --horizon current | next   (default: current)
   * current: uses Current-Year growths and Trailing P/E
   * next   : uses Next-Year growths and Forward P/E
 
 Outputs:
-  * Console table (markdown)
-  * CSV file (default: ias_results_raw.csv)
+  * Console table (markdown) — sorted by IAS desc; invalid IAS at bottom
+  * CSV file (default: ias_results_raw.csv) — same sorted order
   * Optional HTML dumps under ./debug_html/<SYMBOL>/ with --debug-html
+  * All numbers are displayed with 2 decimals, ROUND_HALF_UP (사사오입)
 """
 
 import os
 import re
-import json
 import math
 import time
 import argparse
@@ -27,6 +27,7 @@ import pathlib
 import pandas as pd
 import chromedriver_autoinstaller
 import yfinance as yf
+from decimal import Decimal, ROUND_HALF_UP
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -71,6 +72,15 @@ def clean_percent(text):
         return None
 
 
+def _finite_or_none(x):
+    """Return float(x) if finite; else None."""
+    try:
+        xf = float(x)
+        return xf if math.isfinite(xf) else None
+    except Exception:
+        return None
+
+
 def headless_driver():
     chromedriver_autoinstaller.install()
     options = Options()
@@ -94,21 +104,18 @@ def ensure_dir(path: str):
 
 
 def safe_get_html(driver, url, retries=4, sleep_s=1.0):
-    """
-    Load URL and return page_source, auto-retrying through interstitials.
-    """
+    """Load URL and return page_source, auto-retrying through interstitials."""
     last_err = None
     for attempt in range(retries):
         try:
             driver.get(url)
             time.sleep(0.8 + 0.4 * attempt)  # tiny backoff
             html = driver.page_source or ""
-            # Interstitials or bot checks
             bad = (
-                "Will be right back" in html or
-                "please verify you are a human" in html.lower() or
-                "Access Denied" in html or
-                "Request blocked" in html
+                "Will be right back" in html
+                or "please verify you are a human" in html.lower()
+                or "Access Denied" in html
+                or "Request blocked" in html
             )
             if bad:
                 time.sleep(sleep_s)
@@ -139,7 +146,7 @@ def try_dismiss_consent(driver):
     try:
         btn_texts = [
             "Accept all", "Accept", "I agree", "Agree",
-            "동의", "승인", "확인", "모두 수락", "수락"
+            "동의", "승인", "확인", "모두 수락", "수락",
         ]
         for txt in btn_texts:
             btns = driver.find_elements(By.XPATH, f"//button[normalize-space(text())='{txt}']")
@@ -150,10 +157,6 @@ def try_dismiss_consent(driver):
     except Exception:
         pass
 
-
-# ---------------------------
-# DOM helpers
-# ---------------------------
 
 def table_under_h3(driver, title_regex):
     headers = driver.find_elements(By.XPATH, "//h3")
@@ -174,18 +177,12 @@ def table_under_h3(driver, title_regex):
 # ---------------------------
 
 def get_company_name_yf(symbol: str):
-    """
-    Fetches company name strictly via yfinance.
-    Tries longName, then shortName. Returns None if unavailable.
-    """
+    """Fetches company name strictly via yfinance (longName → shortName)."""
     try:
         t = yf.Ticker(symbol)
-        # Newer yfinance prefers get_info() over .info (deprecated in some versions).
-        info = {}
         try:
             info = t.get_info()
         except Exception:
-            # fallback for older versions
             info = getattr(t, "info", {}) or {}
         name = info.get("longName") or info.get("shortName")
         if isinstance(name, str) and name.strip():
@@ -196,7 +193,7 @@ def get_company_name_yf(symbol: str):
 
 
 # ---------------------------
-# Key statistics / Analysis scrapers (Yahoo HTML)
+# Yahoo scrapers
 # ---------------------------
 
 def get_key_statistics(driver, symbol, debug_dir=None):
@@ -240,7 +237,11 @@ def get_key_statistics(driver, symbol, debug_dir=None):
         except Exception:
             continue
 
-    return {"trailing_pe": trailing_pe, "forward_pe": forward_pe, "operating_margin_ttm": opm_ttm}
+    return {
+        "trailing_pe": _finite_or_none(trailing_pe),
+        "forward_pe": _finite_or_none(forward_pe),
+        "operating_margin_ttm": _finite_or_none(opm_ttm),
+    }
 
 
 def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
@@ -299,6 +300,7 @@ def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
                     elif horizon == "next" and ny_idx is not None and ny_idx < len(tds):
                         revenue_growth = clean_percent(tds[ny_idx].text)
 
+            # Fallback compute if direct growth missing
             if revenue_growth is None:
                 if horizon == "current":
                     if sales_est_cy is not None and sales_est_py not in (None, 0.0):
@@ -397,27 +399,43 @@ def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
         except Exception:
             pass
 
+    # Final sanitize (avoid NaN/inf propagation)
+    revenue_growth = _finite_or_none(revenue_growth)
+    earnings_growth = _finite_or_none(earnings_growth)
     return {"revenue_growth": revenue_growth, "earnings_growth": earnings_growth}
 
 
 # ---------------------------
-# IAS computation
+# IAS computation (fixed)
 # ---------------------------
 
 def compute_ias(pe_used, revenue_growth, earnings_growth, opm_ttm, w1=0.6, w2=0.4):
-    if pe_used is None or pe_used <= 0:
-        return None, None
+    """
+    FIX: Always compute G even if P/E is missing; IAS only if P/E valid.
+    IAS = (w1*G + w2*OPM) / pe_used
+    """
+    rev  = _finite_or_none(revenue_growth)
+    earn = _finite_or_none(earnings_growth)
+    opm  = _finite_or_none(opm_ttm)
 
-    vals = [v for v in (revenue_growth, earnings_growth) if v is not None]
+    # Compute G first
+    vals = [v for v in (rev, earn) if v is not None]
     if len(vals) == 2:
-        G = sum(vals) / 2.0
+        G = (vals[0] + vals[1]) / 2.0
     elif len(vals) == 1:
         G = vals[0]
     else:
         G = 0.0
 
-    opm = opm_ttm if opm_ttm is not None else 0.0
-    ias = (w1 * G + w2 * opm) / pe_used
+    # IAS only if PE is valid
+    pe = _finite_or_none(pe_used)
+    if pe is None or pe <= 0:
+        return G, None
+
+    if opm is None:
+        opm = 0.0
+
+    ias = (w1 * G + w2 * opm) / pe
     return G, ias
 
 
@@ -428,7 +446,7 @@ def compute_ias(pe_used, revenue_growth, earnings_growth, opm_ttm, w1=0.6, w2=0.
 def process_symbol(driver, symbol, horizon="current", debug_html=False):
     debug_dir = os.path.join("debug_html", symbol) if debug_html else None
 
-    company = get_company_name_yf(symbol)  # <- yfinance ONLY
+    company = get_company_name_yf(symbol)  # yfinance only
     stats   = get_key_statistics(driver, symbol, debug_dir=debug_dir)
     growth  = get_analysis_growth(driver, symbol, horizon=horizon, debug_dir=debug_dir)
 
@@ -451,9 +469,54 @@ def process_symbol(driver, symbol, horizon="current", debug_html=False):
         f"Earnings Growth ({'CY' if horizon=='current' else 'NY'} %)": earn_g,
         f"Combined Growth G ({'CY' if horizon=='current' else 'NY'} %)": G,
         "Operating Margin (ttm %)": opm_ttm,
-        "IAS (0.6·G+0.4·OPM)/PE_used": ias
+        "IAS (0.6·G+0.4·OPM)/PE_used": ias,
     }
 
+
+def sort_by_ias(df, ias_col):
+    """Sort by IAS desc; invalid IAS (NaN/None/non-finite) go to bottom."""
+    def is_valid(x):
+        try:
+            return math.isfinite(float(x))
+        except Exception:
+            return False
+
+    valid_mask = df[ias_col].apply(is_valid)
+    df_valid = df[valid_mask].sort_values(by=ias_col, ascending=False, kind="mergesort")
+    df_invalid = df[~valid_mask]
+    return pd.concat([df_valid, df_invalid], ignore_index=True)
+
+
+# ---------------------------
+# Formatting (2 decimals, ROUND_HALF_UP)
+# ---------------------------
+
+def fmt2(x):
+    """Return string with 2 decimals (ROUND_HALF_UP). Keep None/NaN as empty."""
+    try:
+        xf = float(x)
+        if not math.isfinite(xf):
+            return ""
+        # Use Decimal for half-up rounding, then format to 2 decimals
+        d = Decimal(str(xf)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"{d:.2f}"
+    except Exception:
+        return ""
+
+
+def format_numeric_columns(df, exclude_cols=("Company", "Symbol", "PE used")):
+    """Return a copy where all numeric-like columns (except exclude) are formatted with fmt2 (strings)."""
+    out = df.copy()
+    for col in out.columns:
+        if col in exclude_cols:
+            continue
+        out[col] = out[col].apply(fmt2)
+    return out
+
+
+# ---------------------------
+# Main
+# ---------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Compute IAS from Yahoo Finance (crawling) with company via yfinance.")
@@ -463,7 +526,8 @@ def main():
                         help="Use Current Year or Next Year growth. Also switches Trailing vs Forward P/E. Default: current.")
     parser.add_argument("--debug-html", action="store_true",
                         help="Dump raw Yahoo HTML to ./debug_html/<SYMBOL>/")
-    parser.add_argument("--out", default="ias_results_raw.csv", help="CSV output filename (default: ias_results_raw.csv)")
+    parser.add_argument("--out", default="ias_results_raw.csv",
+                        help="CSV output filename (default: ias_results_raw.csv)")
     args = parser.parse_args()
 
     # flatten comma-separated inputs
@@ -485,27 +549,24 @@ def main():
 
     df = pd.DataFrame(results)
 
-    # Console view (rounded)
-    print("\n📊 IAS Inputs & Score")
-    view = df.copy()
-    for col in view.columns:
-        if col in ("Company", "Symbol", "PE used"):
-            continue
-        view[col] = view[col].apply(
-            lambda x: None if x is None or (isinstance(x, float) and math.isnan(x))
-            else (round(x, 3) if isinstance(x, (int, float)) else x)
-        )
+    # Column ordering
     preferred = ["Company", "Symbol", "PE used"]
-    ordered_cols = [c for c in preferred if c in view.columns] + [c for c in view.columns if c not in preferred]
-    view = view[ordered_cols]
+    metric_cols = [c for c in df.columns if c not in preferred]
+    df = df[preferred + metric_cols]
+
+    # Sort by IAS descending; invalid IAS to bottom
+    ias_col = "IAS (0.6·G+0.4·OPM)/PE_used"
+    df_sorted = sort_by_ias(df, ias_col)
+
+    # -------- Console output (2 decimals, ROUND_HALF_UP) --------
+    view = format_numeric_columns(df_sorted, exclude_cols=("Company", "Symbol", "PE used"))
+    print("\n📊 IAS Inputs & Score (sorted by IAS desc; invalid IAS at bottom)")
     print(view.to_markdown(index=False))
 
-    # Save CSV in the same column order
-    df = df[ordered_cols]
-    df.to_csv(args.out, index=False)
-    print(f"\n💾 Saved raw results to {args.out}")
-    if args.debug_html:
-        print("🧪 Debug HTML saved under ./debug_html/<SYMBOL>/")
+    # -------- CSV output (2 decimals, ROUND_HALF_UP) --------
+    df_out = format_numeric_columns(df_sorted, exclude_cols=("Company", "Symbol", "PE used"))
+    df_out.to_csv(args.out, index=False)
+    print(f"\n💾 Saved sorted results to {args.out}")
 
 
 if __name__ == "__main__":
