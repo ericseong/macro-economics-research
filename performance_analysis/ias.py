@@ -8,8 +8,14 @@ IAS (Investment Attractiveness Score) calculator
 - All valuation/growth metrics: crawled from Yahoo Finance pages with Selenium (no YF JSON APIs)
 - Horizon switch:
     --horizon current | next   (default: current)
-  * current: uses Current-Year growths and Trailing P/E
-  * next   : uses Next-Year growths and Forward P/E
+  * current: uses:
+        Revenue growth  = (CY_Est - PY) / |PY| * 100
+        Earnings growth = (CY_EPS_Est - PY_EPS) / |PY_EPS| * 100
+        PE_used         = Trailing P/E
+  * next   : uses:
+        Revenue growth  = (NY_Est - CY_Est) / |CY_Est| * 100
+        Earnings growth = (NY_EPS_Est - CY_EPS_Est) / |CY_EPS_Est| * 100
+        PE_used         = Forward P/E
 
 Outputs:
   * Console table (markdown) — sorted by IAS desc; invalid IAS at bottom
@@ -55,6 +61,11 @@ def clean_number(text):
 
 
 def clean_percent(text):
+    """
+    Parse a percentage string like:
+      "12.34%", "3,023.40%", "(15.2%)", "15.2 per annum"
+    into a float (e.g., 12.34, 3023.40, -15.2).
+    """
     if text is None:
         return None
     t = str(text).strip()
@@ -63,6 +74,8 @@ def clean_percent(text):
     sign = -1.0 if "(" in t and ")" in t else 1.0
     t = t.replace("(", "").replace(")", "")
     t = t.replace("per annum", "")
+    # ✅ critical fix: remove thousand separators like 3,023.40%
+    t = t.replace(",", "")
     m = re.search(r"(-?\d+(\.\d+)?)\s*%?", t)
     if not m:
         return None
@@ -91,9 +104,11 @@ def headless_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                         "Chrome/120.0.0.0 Safari/537.36")
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
     driver = webdriver.Chrome(options=options)
     driver.set_page_load_timeout(60)
     return driver
@@ -129,7 +144,9 @@ def safe_get_html(driver, url, retries=4, sleep_s=1.0):
 
 
 def wait_visible(driver, xpath, timeout=12):
-    WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.XPATH, xpath)))
+    WebDriverWait(driver, timeout).until(
+        EC.presence_of_element_located((By.XPATH, xpath))
+    )
 
 
 def dump_table_html(table_elem, out_path: str):
@@ -145,11 +162,20 @@ def dump_table_html(table_elem, out_path: str):
 def try_dismiss_consent(driver):
     try:
         btn_texts = [
-            "Accept all", "Accept", "I agree", "Agree",
-            "동의", "승인", "확인", "모두 수락", "수락",
+            "Accept all",
+            "Accept",
+            "I agree",
+            "Agree",
+            "동의",
+            "승인",
+            "확인",
+            "모두 수락",
+            "수락",
         ]
         for txt in btn_texts:
-            btns = driver.find_elements(By.XPATH, f"//button[normalize-space(text())='{txt}']")
+            btns = driver.find_elements(
+                By.XPATH, f"//button[normalize-space(text())='{txt}']"
+            )
             if btns:
                 btns[0].click()
                 time.sleep(0.5)
@@ -203,7 +229,11 @@ def get_key_statistics(driver, symbol, debug_dir=None):
         return {}
     if debug_dir:
         ensure_dir(debug_dir)
-        with open(os.path.join(debug_dir, f"{symbol}_key_statistics.html"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(debug_dir, f"{symbol}_key_statistics.html"),
+            "w",
+            encoding="utf-8",
+        ) as f:
             f.write(html)
 
     try_dismiss_consent(driver)
@@ -215,7 +245,9 @@ def get_key_statistics(driver, symbol, debug_dir=None):
     tables = driver.find_elements(By.XPATH, "//section//table")
     for i, t in enumerate(tables):
         if debug_dir:
-            dump_table_html(t, os.path.join(debug_dir, f"{symbol}_key_stats_table_{i}.html"))
+            dump_table_html(
+                t, os.path.join(debug_dir, f"{symbol}_key_stats_table_{i}.html")
+            )
         try:
             rows = t.find_elements(By.TAG_NAME, "tr")
             for r in rows:
@@ -245,6 +277,17 @@ def get_key_statistics(driver, symbol, debug_dir=None):
 
 
 def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
+    """
+    Compute revenue & earnings growth with per-horizon definitions:
+
+    Revenue:
+      current: (CY_Est - PY)      / |PY|       * 100
+      next   : (NY_Est - CY_Est)  / |CY_Est|   * 100
+
+    Earnings (EPS):
+      current: (CY_EPS_Est - PY_EPS)     / |PY_EPS|      * 100
+      next   : (NY_EPS_Est - CY_EPS_Est) / |CY_EPS_Est|  * 100
+    """
     assert horizon in ("current", "next")
 
     url = f"https://finance.yahoo.com/quote/{symbol}/analysis?p={symbol}"
@@ -254,26 +297,42 @@ def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
 
     if debug_dir:
         ensure_dir(debug_dir)
-        with open(os.path.join(debug_dir, f"{symbol}_analysis.html"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(debug_dir, f"{symbol}_analysis.html"),
+            "w",
+            encoding="utf-8",
+        ) as f:
             f.write(html)
 
     try_dismiss_consent(driver)
 
-    # Revenue Growth
+    # ---- Revenue Growth (from Revenue Estimate) ----
     revenue_growth = None
-    sales_est_cy = sales_est_ny = sales_est_py = None
+    sales_est_cy = sales_est_ny = None
+    sales_py_cy = None  # Year Ago Sales for Current Year column
 
     try:
         rev_table = table_under_h3(driver, r"Revenue\s+Estimate")
         if rev_table:
             if debug_dir:
-                dump_table_html(rev_table, os.path.join(debug_dir, f"{symbol}_analysis_revenue_estimate.html"))
+                dump_table_html(
+                    rev_table,
+                    os.path.join(
+                        debug_dir, f"{symbol}_analysis_revenue_estimate.html"
+                    ),
+                )
 
             thead = rev_table.find_element(By.TAG_NAME, "thead")
             ths = thead.find_elements(By.TAG_NAME, "th")
             cols = [th.text.strip() for th in ths]
-            cy_idx = next((i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)), None)
-            ny_idx = next((i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)), None)
+            cy_idx = next(
+                (i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)),
+                None,
+            )
+            ny_idx = next(
+                (i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)),
+                None,
+            )
 
             tbody = rev_table.find_element(By.TAG_NAME, "tbody")
             rows = tbody.find_elements(By.TAG_NAME, "tr")
@@ -284,118 +343,174 @@ def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
                     continue
                 row_label = tds[0].text.strip()
 
-                if re.search(r"Sales\s+Estimate", row_label, re.I):
+                # Avg Estimate row: CY_Est / NY_Est
+                if re.search(r"Sales\s+Estimate", row_label, re.I) or re.search(
+                    r"Avg\.?\s*Estimate", row_label, re.I
+                ):
                     if cy_idx is not None and cy_idx < len(tds):
                         sales_est_cy = clean_number(tds[cy_idx].text)
                     if ny_idx is not None and ny_idx < len(tds):
                         sales_est_ny = clean_number(tds[ny_idx].text)
 
+                # Year Ago Sales row (for CY)
                 if re.search(r"Year\s+Ago\s+Sales", row_label, re.I):
                     if cy_idx is not None and cy_idx < len(tds):
-                        sales_est_py = clean_number(tds[cy_idx].text)
+                        sales_py_cy = clean_number(tds[cy_idx].text)
 
-                if re.search(r"Sales\s*Growth", row_label, re.I):
-                    if horizon == "current" and cy_idx is not None and cy_idx < len(tds):
-                        revenue_growth = clean_percent(tds[cy_idx].text)
-                    elif horizon == "next" and ny_idx is not None and ny_idx < len(tds):
-                        revenue_growth = clean_percent(tds[ny_idx].text)
-
-            # Fallback compute if direct growth missing
-            if revenue_growth is None:
-                if horizon == "current":
-                    if sales_est_cy is not None and sales_est_py not in (None, 0.0):
-                        revenue_growth = (sales_est_cy - sales_est_py) / abs(sales_est_py) * 100.0
-                else:
-                    if sales_est_ny is not None and sales_est_cy not in (None, 0.0):
-                        revenue_growth = (sales_est_ny - sales_est_cy) / abs(sales_est_cy) * 100.0
+            # Apply our horizon-specific definitions
+            if horizon == "current":
+                if (
+                    sales_est_cy is not None
+                    and sales_py_cy not in (None, 0.0)
+                ):
+                    revenue_growth = (
+                        (sales_est_cy - sales_py_cy) / abs(sales_py_cy) * 100.0
+                    )
+            else:  # horizon == "next"
+                if (
+                    sales_est_ny is not None
+                    and sales_est_cy not in (None, 0.0)
+                ):
+                    revenue_growth = (
+                        (sales_est_ny - sales_est_cy) / abs(sales_est_cy) * 100.0
+                    )
     except Exception:
         pass
 
-    # Earnings Growth
+    # ---- Earnings Growth (from Earnings Estimate first; Growth Estimates as fallback) ----
     earnings_growth = None
-    try:
-        ge_table = table_under_h3(driver, r"Growth\s+Estimates")
-        if ge_table:
-            if debug_dir:
-                dump_table_html(ge_table, os.path.join(debug_dir, f"{symbol}_analysis_growth_estimates.html"))
 
-            thead = ge_table.find_element(By.TAG_NAME, "thead")
+    # 1) Primary: Earnings Estimate table (per-horizon EPS growth)
+    try:
+        ee_table = table_under_h3(driver, r"Earnings\s+Estimate")
+        if ee_table:
+            if debug_dir:
+                dump_table_html(
+                    ee_table,
+                    os.path.join(
+                        debug_dir, f"{symbol}_analysis_earnings_estimate.html"
+                    ),
+                )
+
+            thead = ee_table.find_element(By.TAG_NAME, "thead")
             ths = thead.find_elements(By.TAG_NAME, "th")
             cols = [th.text.strip() for th in ths]
+            cy_idx = next(
+                (i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)),
+                None,
+            )
+            ny_idx = next(
+                (i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)),
+                None,
+            )
 
-            if any(re.search(r"Company", c, re.I) for c in cols):
-                comp_idx = next((i for i, c in enumerate(cols) if re.search(r"Company", c, re.I)), None)
-                tbody = ge_table.find_element(By.TAG_NAME, "tbody")
-                for r in tbody.find_elements(By.TAG_NAME, "tr"):
-                    tds = r.find_elements(By.TAG_NAME, "td")
-                    if not tds:
-                        continue
-                    row_label = tds[0].text.strip()
-                    if horizon == "current" and re.search(r"Current\s+Year", row_label, re.I):
-                        if comp_idx is not None and comp_idx < len(tds):
-                            earnings_growth = clean_percent(tds[comp_idx].text)
-                            break
-                    if horizon == "next" and re.search(r"Next\s+Year", row_label, re.I):
-                        if comp_idx is not None and comp_idx < len(tds):
-                            earnings_growth = clean_percent(tds[comp_idx].text)
-                            break
+            tbody = ee_table.find_element(By.TAG_NAME, "tbody")
+            rows = tbody.find_elements(By.TAG_NAME, "tr")
 
-            elif any(re.search(r"Symbol", c, re.I) for c in cols):
-                cy_idx = next((i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)), None)
-                ny_idx = next((i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)), None)
-                sym_upper = symbol.upper()
-                target_idx = cy_idx if horizon == "current" else ny_idx
+            avg_est_cy = avg_est_ny = year_ago_eps_cy = None
+            for r in rows:
+                tds = r.find_elements(By.TAG_NAME, "td")
+                if not tds:
+                    continue
+                row_label = tds[0].text.strip()
 
-                tbody = ge_table.find_element(By.TAG_NAME, "tbody")
-                for r in tbody.find_elements(By.TAG_NAME, "tr"):
-                    tds = r.find_elements(By.TAG_NAME, "td")
-                    if not tds:
-                        continue
-                    row_key = tds[0].text.strip().upper()
-                    if row_key == sym_upper and target_idx is not None and target_idx < len(tds):
-                        earnings_growth = clean_percent(tds[target_idx].text)
-                        break
+                if re.search(r"Avg\.?\s*Estimate", row_label, re.I):
+                    if cy_idx is not None and cy_idx < len(tds):
+                        avg_est_cy = clean_number(tds[cy_idx].text)
+                    if ny_idx is not None and ny_idx < len(tds):
+                        avg_est_ny = clean_number(tds[ny_idx].text)
+
+                if re.search(r"Year\s+Ago\s+EPS", row_label, re.I):
+                    if cy_idx is not None and cy_idx < len(tds):
+                        year_ago_eps_cy = clean_number(tds[cy_idx].text)
+
+            if horizon == "current":
+                if (
+                    avg_est_cy is not None
+                    and year_ago_eps_cy not in (None, 0.0)
+                ):
+                    earnings_growth = (
+                        (avg_est_cy - year_ago_eps_cy)
+                        / abs(year_ago_eps_cy)
+                        * 100.0
+                    )
+            else:  # next
+                if (
+                    avg_est_ny is not None
+                    and avg_est_cy not in (None, 0.0)
+                ):
+                    earnings_growth = (
+                        (avg_est_ny - avg_est_cy)
+                        / abs(avg_est_cy)
+                        * 100.0
+                    )
     except Exception:
         pass
 
-    # Fallback via Earnings Estimate math
+    # 2) Fallback: Growth Estimates table (if above failed)
     if earnings_growth is None:
         try:
-            ee_table = table_under_h3(driver, r"Earnings\s+Estimate")
-            if ee_table:
+            ge_table = table_under_h3(driver, r"Growth\s+Estimates")
+            if ge_table:
                 if debug_dir:
-                    dump_table_html(ee_table, os.path.join(debug_dir, f"{symbol}_analysis_earnings_estimate.html"))
+                    dump_table_html(
+                        ge_table,
+                        os.path.join(
+                            debug_dir, f"{symbol}_analysis_growth_estimates.html"
+                        ),
+                    )
 
-                thead = ee_table.find_element(By.TAG_NAME, "thead")
+                thead = ge_table.find_element(By.TAG_NAME, "thead")
                 ths = thead.find_elements(By.TAG_NAME, "th")
                 cols = [th.text.strip() for th in ths]
-                cy_idx = next((i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)), None)
-                ny_idx = next((i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)), None)
 
-                tbody = ee_table.find_element(By.TAG_NAME, "tbody")
-                rows = tbody.find_elements(By.TAG_NAME, "tr")
+                # Layout A: columns contain "Company"
+                if any(re.search(r"Company", c, re.I) for c in cols):
+                    comp_idx = next(
+                        (i for i, c in enumerate(cols) if re.search(r"Company", c, re.I)),
+                        None,
+                    )
+                    tbody = ge_table.find_element(By.TAG_NAME, "tbody")
+                    for r in tbody.find_elements(By.TAG_NAME, "tr"):
+                        tds = r.find_elements(By.TAG_NAME, "td")
+                        if not tds:
+                            continue
+                        row_label = tds[0].text.strip()
+                        if horizon == "current" and re.search(
+                            r"Current\s+Year", row_label, re.I
+                        ):
+                            if comp_idx is not None and comp_idx < len(tds):
+                                earnings_growth = clean_percent(tds[comp_idx].text)
+                                break
+                        if horizon == "next" and re.search(
+                            r"Next\s+Year", row_label, re.I
+                        ):
+                            if comp_idx is not None and comp_idx < len(tds):
+                                earnings_growth = clean_percent(tds[comp_idx].text)
+                                break
 
-                avg_est_cy = avg_est_ny = year_ago_eps_cy = None
-                for r in rows:
-                    tds = r.find_elements(By.TAG_NAME, "td")
-                    if not tds:
-                        continue
-                    row_label = tds[0].text.strip()
-                    if re.search(r"Avg\.?\s*Estimate", row_label, re.I):
-                        if cy_idx is not None and cy_idx < len(tds):
-                            avg_est_cy = clean_number(tds[cy_idx].text)
-                        if ny_idx is not None and ny_idx < len(tds):
-                            avg_est_ny = clean_number(tds[ny_idx].text)
-                    if re.search(r"Year\s+Ago\s+EPS", row_label, re.I):
-                        if cy_idx is not None and cy_idx < len(tds):
-                            year_ago_eps_cy = clean_number(tds[cy_idx].text)
+                # Layout B: first column is "Symbol" (rows keyed by symbol)
+                elif any(re.search(r"Symbol", c, re.I) for c in cols):
+                    cy_idx = next(
+                        (i for i, c in enumerate(cols) if re.search(r"Current\s+Year", c, re.I)),
+                        None,
+                    )
+                    ny_idx = next(
+                        (i for i, c in enumerate(cols) if re.search(r"Next\s+Year", c, re.I)),
+                        None,
+                    )
+                    sym_upper = symbol.upper()
+                    target_idx = cy_idx if horizon == "current" else ny_idx
 
-                if horizon == "current":
-                    if avg_est_cy is not None and year_ago_eps_cy not in (None, 0.0):
-                        earnings_growth = (avg_est_cy - year_ago_eps_cy) / abs(year_ago_eps_cy) * 100.0
-                else:
-                    if avg_est_ny is not None and avg_est_cy not in (None, 0.0):
-                        earnings_growth = (avg_est_ny - avg_est_cy) / abs(avg_est_cy) * 100.0
+                    tbody = ge_table.find_element(By.TAG_NAME, "tbody")
+                    for r in tbody.find_elements(By.TAG_NAME, "tr"):
+                        tds = r.find_elements(By.TAG_NAME, "td")
+                        if not tds:
+                            continue
+                        row_key = tds[0].text.strip().upper()
+                        if row_key == sym_upper and target_idx is not None and target_idx < len(tds):
+                            earnings_growth = clean_percent(tds[target_idx].text)
+                            break
         except Exception:
             pass
 
@@ -411,14 +526,14 @@ def get_analysis_growth(driver, symbol, horizon="current", debug_dir=None):
 
 def compute_ias(pe_used, revenue_growth, earnings_growth, opm_ttm, w1=0.6, w2=0.4):
     """
-    FIX: Always compute G even if P/E is missing; IAS only if P/E valid.
+    Always compute G even if P/E is missing; IAS only if P/E valid.
     IAS = (w1*G + w2*OPM) / pe_used
     """
-    rev  = _finite_or_none(revenue_growth)
+    rev = _finite_or_none(revenue_growth)
     earn = _finite_or_none(earnings_growth)
-    opm  = _finite_or_none(opm_ttm)
+    opm = _finite_or_none(opm_ttm)
 
-    # Compute G first
+    # Compute G first (combined growth)
     vals = [v for v in (rev, earn) if v is not None]
     if len(vals) == 2:
         G = (vals[0] + vals[1]) / 2.0
@@ -447,14 +562,14 @@ def process_symbol(driver, symbol, horizon="current", debug_html=False):
     debug_dir = os.path.join("debug_html", symbol) if debug_html else None
 
     company = get_company_name_yf(symbol)  # yfinance only
-    stats   = get_key_statistics(driver, symbol, debug_dir=debug_dir)
-    growth  = get_analysis_growth(driver, symbol, horizon=horizon, debug_dir=debug_dir)
+    stats = get_key_statistics(driver, symbol, debug_dir=debug_dir)
+    growth = get_analysis_growth(driver, symbol, horizon=horizon, debug_dir=debug_dir)
 
     trailing_pe = stats.get("trailing_pe")
-    forward_pe  = stats.get("forward_pe")
-    opm_ttm     = stats.get("operating_margin_ttm")
-    rev_g       = growth.get("revenue_growth")
-    earn_g      = growth.get("earnings_growth")
+    forward_pe = stats.get("forward_pe")
+    opm_ttm = stats.get("operating_margin_ttm")
+    rev_g = growth.get("revenue_growth")
+    earn_g = growth.get("earnings_growth")
 
     pe_used = trailing_pe if horizon == "current" else forward_pe
     G, ias = compute_ias(pe_used, rev_g, earn_g, opm_ttm)
@@ -497,7 +612,6 @@ def fmt2(x):
         xf = float(x)
         if not math.isfinite(xf):
             return ""
-        # Use Decimal for half-up rounding, then format to 2 decimals
         d = Decimal(str(xf)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return f"{d:.2f}"
     except Exception:
@@ -519,15 +633,34 @@ def format_numeric_columns(df, exclude_cols=("Company", "Symbol", "PE used")):
 # ---------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Compute IAS from Yahoo Finance (crawling) with company via yfinance.")
-    parser.add_argument("--symbol", required=True, nargs="+",
-                        help="Ticker symbols. Comma- or space-separated (e.g., MSFT,AAPL or MSFT AAPL).")
-    parser.add_argument("--horizon", choices=["current", "next"], default="current",
-                        help="Use Current Year or Next Year growth. Also switches Trailing vs Forward P/E. Default: current.")
-    parser.add_argument("--debug-html", action="store_true",
-                        help="Dump raw Yahoo HTML to ./debug_html/<SYMBOL>/")
-    parser.add_argument("--out", default="ias_results_raw.csv",
-                        help="CSV output filename (default: ias_results_raw.csv)")
+    parser = argparse.ArgumentParser(
+        description="Compute IAS from Yahoo Finance (crawling) with company via yfinance."
+    )
+    parser.add_argument(
+        "--symbol",
+        required=True,
+        nargs="+",
+        help="Ticker symbols. Comma- or space-separated (e.g., MSFT,AAPL or MSFT AAPL).",
+    )
+    parser.add_argument(
+        "--horizon",
+        choices=["current", "next"],
+        default="current",
+        help=(
+            "Use Current Year or Next Year growth. "
+            "Also switches Trailing vs Forward P/E. Default: current."
+        ),
+    )
+    parser.add_argument(
+        "--debug-html",
+        action="store_true",
+        help="Dump raw Yahoo HTML to ./debug_html/<SYMBOL>/",
+    )
+    parser.add_argument(
+        "--out",
+        default="ias_results_raw.csv",
+        help="CSV output filename (default: ias_results_raw.csv)",
+    )
     args = parser.parse_args()
 
     # flatten comma-separated inputs
