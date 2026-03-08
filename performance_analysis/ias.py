@@ -17,6 +17,11 @@ IAS (Investment Attractiveness Score) calculator
         Earnings growth = (NY_EPS_Est - CY_EPS_Est) / |CY_EPS_Est| * 100
         PE_used         = Forward P/E
 
+NEW (revised):
+  * "forward dividend ratio" column:
+    - From Key Statistics -> Dividends & Splits -> Forward Annual Dividend Yield
+    - Stored as percent number (e.g., "1.23%" -> 1.23)
+
 Outputs:
   * Console table (markdown) — sorted by IAS desc; invalid IAS at bottom
   * CSV file (default: ias_results_raw.csv) — same sorted order
@@ -46,16 +51,54 @@ from selenium.webdriver.support import expected_conditions as EC
 # ---------------------------
 
 def clean_number(text):
+    """
+    Parse a numeric string into float.
+    Also supports Yahoo-style suffixes like:
+      - "3.33k" -> 3330.0
+      - "1.2M"  -> 1200000.0
+      - "4.5B"  -> 4500000000.0
+      - "0.8T"  -> 800000000000.0
+    Existing behavior is preserved for normal numbers and other formats.
+    """
     if text is None:
         return None
     t = str(text).strip()
     if t in ("", "--", "—", "N/A", "NaN"):
         return None
-    t = re.sub(r"[^\d\.\-]", "", t)
-    if t in ("", "-", ".", "-."):
+
+    # Keep existing tolerance but add suffix parsing (k/m/b/t)
+    # Remove thousand separators first (safe even if none)
+    t0 = t.replace(",", "").strip()
+
+    # Handle parentheses negative (rare here, but safe & consistent with existing style)
+    sign = -1.0 if "(" in t0 and ")" in t0 else 1.0
+    t0 = t0.replace("(", "").replace(")", "").strip()
+
+    # Suffix multiplier
+    mult_map = {
+        "k": 1e3,
+        "m": 1e6,
+        "b": 1e9,
+        "t": 1e12,
+    }
+
+    m = re.fullmatch(r"([-+]?\d*\.?\d+)\s*([kKmMbBtT])?", t0)
+    if m:
+        try:
+            num = float(m.group(1))
+            suf = m.group(2)
+            if suf:
+                num *= mult_map.get(suf.lower(), 1.0)
+            return num * sign
+        except Exception:
+            return None
+
+    # Fallback to original behavior (strip non-numeric chars)
+    t1 = re.sub(r"[^\d\.\-]", "", t)
+    if t1 in ("", "-", ".", "-."):
         return None
     try:
-        return float(t)
+        return float(t1)
     except Exception:
         return None
 
@@ -241,6 +284,7 @@ def get_key_statistics(driver, symbol, debug_dir=None):
     trailing_pe = None
     forward_pe = None
     opm_ttm = None
+    forward_dividend_yield_pct = None  # NEW
 
     tables = driver.find_elements(By.XPATH, "//section//table")
     for i, t in enumerate(tables):
@@ -260,12 +304,20 @@ def get_key_statistics(driver, symbol, debug_dir=None):
                 if re.search(r"Trailing\s+P/?E", label, re.I):
                     if trailing_pe is None:
                         trailing_pe = clean_number(value)
+
                 if re.search(r"Forward\s+P/?E", label, re.I):
                     if forward_pe is None:
                         forward_pe = clean_number(value)
+
                 if re.search(r"Operating\s+Margin\s*\(ttm\)", label, re.I):
                     if opm_ttm is None:
                         opm_ttm = clean_percent(value)
+
+                # ✅ Dividends & Splits -> Forward Annual Dividend Yield
+                # Label on Yahoo key-statistics is typically exactly this.
+                if re.search(r"Forward\s+Annual\s+Dividend\s+Yield", label, re.I):
+                    if forward_dividend_yield_pct is None:
+                        forward_dividend_yield_pct = clean_percent(value)
         except Exception:
             continue
 
@@ -273,6 +325,7 @@ def get_key_statistics(driver, symbol, debug_dir=None):
         "trailing_pe": _finite_or_none(trailing_pe),
         "forward_pe": _finite_or_none(forward_pe),
         "operating_margin_ttm": _finite_or_none(opm_ttm),
+        "forward_annual_dividend_yield_pct": _finite_or_none(forward_dividend_yield_pct),  # NEW
     }
 
 
@@ -568,6 +621,8 @@ def process_symbol(driver, symbol, horizon="current", debug_html=False):
     trailing_pe = stats.get("trailing_pe")
     forward_pe = stats.get("forward_pe")
     opm_ttm = stats.get("operating_margin_ttm")
+    fwd_div_yield_pct = stats.get("forward_annual_dividend_yield_pct")  # NEW (% number)
+
     rev_g = growth.get("revenue_growth")
     earn_g = growth.get("earnings_growth")
 
@@ -585,6 +640,7 @@ def process_symbol(driver, symbol, horizon="current", debug_html=False):
         f"Combined Growth G ({'CY' if horizon=='current' else 'NY'} %)": G,
         "Operating Margin (ttm %)": opm_ttm,
         "IAS (0.6·G+0.4·OPM)/PE_used": ias,
+        "forward dividend ratio": fwd_div_yield_pct,  # NEW COLUMN (at end, in %)
     }
 
 
@@ -704,4 +760,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
