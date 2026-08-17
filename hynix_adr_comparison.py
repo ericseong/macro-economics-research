@@ -16,10 +16,15 @@ SK하이닉스(KOSPI: 000660.KS)와 나스닥에 상장된 ADR(SKHY)의 가격�
   일별 막대그래프(bar)로 표시
   * 하단 차트 x축에는 range slider(슬라이드 바)가 있어 원하는 구간을 드래그로 선택/확대 가능
   * 마우스 스크롤로도 확대/축소 가능 (scrollZoom)
+- 오늘 날짜 처리:
+  * 일간 다운로드에 아직 오늘 데이터가 없으면(장중 등) 실시간 현재가를 가져와 보강합니다.
+  * 000660.KS / SKHY 둘 다 오늘 가격을 가져올 수 없으면 오늘은 차트에 표시하지 않습니다.
+  * 둘 중 하나만 오늘 가격이 없으면, 하단 %차이 계산에서는 forward-fill(직전 값 사용)로
+    오늘의 차이를 계산해 표시합니다. (상단 캔들차트는 가격이 있는 종목만 오늘 캔들이 나타납니다.)
 
 사용법:
     python hynix_adr_comparison.py --months 6
-    python hynix_adr_comparison.py --months 360   # 약 30년치 전체 이력
+    python hynix_adr_comparison.py --months 360   # 야후 파이낸스에 있는 전체 이력
 
 결과:
     hynix_adr_comparison.html 파일로 저장되고, 기본 브라우저에서 바로 열립니다.
@@ -134,6 +139,75 @@ def fetch_dividend_yield(ticker: str, price_series: pd.Series) -> pd.Series:
     return yield_pct
 
 
+def get_current_price(ticker: str):
+    """
+    해당 티커의 실시간(또는 가장 최근) 현재가를 가져옵니다.
+    여러 방법을 순서대로 시도하고, 모두 실패하면 None을 반환합니다.
+    """
+    try:
+        fi = yf.Ticker(ticker).fast_info
+        for key in ("last_price", "lastPrice", "regular_market_price"):
+            try:
+                val = fi[key]
+            except Exception:
+                val = getattr(fi, key, None)
+            if val:
+                return float(val)
+    except Exception:
+        pass
+    try:
+        info = yf.Ticker(ticker).info
+        val = info.get("regularMarketPrice") or info.get("currentPrice")
+        if val:
+            return float(val)
+    except Exception:
+        pass
+    try:
+        intraday = yf.Ticker(ticker).history(period="1d", interval="1m")
+        if not intraday.empty:
+            return float(intraday["Close"].dropna().iloc[-1])
+    except Exception:
+        pass
+    return None
+
+
+def ensure_today_row(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    df(OHLC, 날짜 인덱스)에 오늘 날짜 데이터가 없으면 현재가를 가져와
+    O=H=L=C가 모두 현재가인 "오늘" 행을 추가합니다.
+    현재가를 가져올 수 없으면 df를 그대로 반환합니다 (오늘 데이터 없이 = 표시하지 않음).
+    """
+    today = pd.Timestamp(datetime.now().date())
+    if today in df.index:
+        return df
+
+    price = get_current_price(ticker)
+    if price is None:
+        print(f"  ({ticker}: 오늘({today.date()}) 현재가를 가져오지 못했습니다 — 오늘 데이터 제외)")
+        return df
+
+    print(f"  ({ticker}: 오늘({today.date()}) 현재가 {price:,.2f} 사용)")
+    today_row = pd.DataFrame(
+        {"Open": [price], "High": [price], "Low": [price], "Close": [price]},
+        index=[today],
+    )
+    return pd.concat([df, today_row]).sort_index()
+
+
+def ensure_today_fx(fx_close: pd.Series, fx_ticker: str) -> pd.Series:
+    """fx_close(환율 Close 시계열)에 오늘 환율이 없으면 현재 환율을 가져와 추가합니다."""
+    today = pd.Timestamp(datetime.now().date())
+    if today in fx_close.index:
+        return fx_close
+
+    price = get_current_price(fx_ticker)
+    if price is None:
+        return fx_close
+
+    today_row = pd.Series([price], index=[today])
+    return pd.concat([fx_close, today_row]).sort_index()
+
+
 def build_data(months: int):
     end_date = datetime.today() + timedelta(days=1)  # 오늘자 데이터까지 포함
     start_date = end_date - timedelta(days=int(months * 30.44) + 5)
@@ -152,6 +226,12 @@ def build_data(months: int):
     # 가장 오래된 환율값으로 backward-fill 되어 근사치로 처리됩니다.
     fx_close = fetch_ohlc(FX_TICKER, start_date, end_date, adjusted=False)["Close"]
 
+    # 오늘 데이터가 일간 다운로드에 아직 없다면(장중이거나 반영 지연 등) 현재가로 보강
+    print("오늘 날짜 데이터 확인 중...")
+    kospi = ensure_today_row(kospi, KOSPI_TICKER)
+    adr = ensure_today_row(adr, ADR_TICKER)
+    fx_close = ensure_today_fx(fx_close, FX_TICKER)
+
     print(f"[4/5] {KOSPI_TICKER} 원시(raw) 종가 데이터 가져오는 중 (시가배당율 계산용)...")
     # 시가배당율은 "그 날 실제 거래된 시장가" 기준이어야 하므로 수정주가가 아닌 raw 종가를 사용
     kospi_raw_close = fetch_ohlc(KOSPI_TICKER, start_date, end_date, adjusted=False)["Close"]
@@ -167,6 +247,8 @@ def build_data(months: int):
     skhy_krw = adr.mul(fx_aligned_adr * ADR_RATIO, axis=0)
 
     # 종가 기준으로 날짜 정렬 (한국/미국 거래일 차이는 forward-fill) - 하단 % 차이 계산용
+    # (오늘 날짜에 둘 중 하나만 값이 있으면, 여기서 ffill()로 없는 쪽을 직전 값으로 채워
+    #  "차이"를 계산합니다. 둘 다 없으면 애초에 오늘 인덱스 자체가 없으므로 표시되지 않습니다.)
     close_df = pd.concat(
         [kospi["Close"].rename(KOSPI_TICKER), adr["Close"].rename(ADR_TICKER)], axis=1
     ).sort_index()
