@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
 """
-hynix_adr_comparison.py
+tsmc_adr_comparison.py
 ------------------------
-SK하이닉스(KOSPI: 000660.KS)와 나스닥에 상장된 ADR(SKHY)의 가격을 비교하는 스크립트.
+대만 증권거래소(TWSE)에 상장된 TSMC(2330.TW)와 NYSE에 상장된 ADR(TSM)의 가격을 비교하는 스크립트.
 
-- 000660.KS / SKHY 모두 배당락·액면분할/병합이 반영된 수정주가(adjusted price)를 사용해
-  캔들차트와 프리미엄/디스카운트를 계산합니다 (장기간 비교 시 필수).
+- 2330.TW / TSM 모두 배당락·액면분할/병합이 반영된 수정주가(adjusted price)를 사용해
+  캔들차트와 프리미엄/디스카운트를 계산합니다 (TSM ADR 상장일인 1997년까지 장기간 비교 시 필수).
   단, 시가배당율(왼쪽 y축) 계산에는 "그 날의 실제 시장가"가 필요하므로 원시(raw) 종가를 별도로 사용합니다.
-- 상단 차트: 000660.KS 캔들차트 + SKHY(원화, 보통주 1주 환산) 캔들차트를 오른쪽 y축(KRW)에 표시하고,
-  000660.KS의 시가배당율(연환산, trailing 12M) 라인을 왼쪽 y축(%)에 함께 표시
-  * SKHY는 "해당 날짜"의 USD/KRW 환율을 곱하고, ADR 비율(1 ADR = 보통주 10주)을 반영해
-    "보통주 환산 원화가"로 변환해 000660.KS와 같은 축(KRW)에서 직접 비교 가능
-  * 두 캔들차트 모두 상승일=빨강, 하락일=파랑 (한국 관례)
-- 하단 차트: (SKHY * 10 * 해당 날짜 USD/KRW환율) 이 000660.KS 대비 몇 % 차이 나는지 (%)를
+- 상단 차트: 2330.TW 캔들차트 + TSM(대만달러, 원주 1주 환산) 캔들차트를 오른쪽 y축(TWD)에 표시하고,
+  2330.TW의 시가배당율(연환산, trailing 12M) 라인을 왼쪽 y축(%)에 함께 표시
+  * 1 TSM ADR = 2330.TW 원주 5주 이므로, TSM(USD) 가격에 "해당 날짜"의 USD/TWD 환율을 곱한 뒤
+    ADR 비율(5)로 나눠 "원주 1주 환산 대만달러가"로 변환 -> 2330.TW와 같은 축(TWD)에서 직접 비교 가능
+  * 두 캔들차트 모두 상승일=빨강, 하락일=파랑
+- 하단 차트: (TSM * 해당 날짜 USD/TWD환율 / 5) 이 2330.TW 대비 몇 % 차이 나는지 (%)를
   일별 막대그래프(bar)로 표시
   * 하단 차트 x축에는 range slider(슬라이드 바)가 있어 원하는 구간을 드래그로 선택/확대 가능
   * 마우스 스크롤로도 확대/축소 가능 (scrollZoom)
 
 사용법:
-    python hynix_adr_comparison.py --months 6
-    python hynix_adr_comparison.py --months 360   # 약 30년치 전체 이력
+    python tsmc_adr_comparison.py --months 6
 
 결과:
-    hynix_adr_comparison.html 파일로 저장되고, 기본 브라우저에서 바로 열립니다.
+    tsmc_adr_comparison.html 파일로 저장되고, 기본 브라우저에서 바로 열립니다.
 """
 
 import argparse
@@ -48,19 +47,19 @@ except ImportError:
         "먼저 `pip install plotly` 로 설치해 주세요."
     )
 
-KOSPI_TICKER = "000660.KS"   # SK하이닉스 (KOSPI)
-ADR_TICKER = "SKHY"          # SK하이닉스 ADR (Nasdaq)
-FX_TICKER = "KRW=X"          # USD/KRW 환율
-ADR_RATIO = 10                # 1 ADR = 보통주 10주
+LOCAL_TICKER = "2330.TW"     # TSMC (대만 TWSE)
+ADR_TICKER = "TSM"           # TSMC ADR (NYSE)
+FX_TICKER = "TWD=X"          # USD/TWD 환율
+ADR_RATIO = 5                 # 1 ADR = 보통주 5주 (TSMC 기준)
 
-# 한국식 캔들 색상: 상승 = 빨강, 하락 = 파랑
+# 캔들 색상: 상승 = 빨강, 하락 = 파랑
 INCREASING_COLOR = "#d62728"
 DECREASING_COLOR = "#1f77b4"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="SK Hynix (KOSPI) vs SKHY (Nasdaq ADR) 가격 비교 차트를 생성합니다."
+        description="TSMC (TWSE) vs TSM (NYSE ADR) 가격 비교 차트를 생성합니다."
     )
     parser.add_argument(
         "--months",
@@ -68,7 +67,7 @@ def parse_args():
         type=int,
         required=True,
         help="조회할 개월 수 (오늘로부터 n개월 전까지의 일간 데이터를 사용, "
-        "야후 파이낸스에 존재하는 전체 이력을 보려면 충분히 큰 값(예: 360)을 지정)",
+        "예: TSM ADR 상장 시점인 1997년까지 전체를 보려면 약 360)",
     )
     return parser.parse_args()
 
@@ -140,50 +139,57 @@ def build_data(months: int):
 
     print(f"데이터 조회 기간: {start_date.date()} ~ {end_date.date()}")
 
-    print(f"[1/5] {KOSPI_TICKER} (KOSPI) 수정주가(adjusted) 데이터 가져오는 중...")
-    kospi = fetch_ohlc(KOSPI_TICKER, start_date, end_date, adjusted=True)
+    print(f"[1/5] {LOCAL_TICKER} (TWSE) 수정주가(adjusted) 데이터 가져오는 중...")
+    local = fetch_ohlc(LOCAL_TICKER, start_date, end_date, adjusted=True)
 
-    print(f"[2/5] {ADR_TICKER} (Nasdaq ADR) 수정주가(adjusted) 데이터 가져오는 중...")
+    print(f"[2/5] {ADR_TICKER} (NYSE ADR) 수정주가(adjusted) 데이터 가져오는 중...")
     adr = fetch_ohlc(ADR_TICKER, start_date, end_date, adjusted=True)
 
-    print(f"[3/5] {FX_TICKER} (USD/KRW 환율) 데이터 가져오는 중...")
-    # 참고: Yahoo Finance의 USD/KRW 환율 데이터는 통상 2000년대 초반부터 제공됩니다.
-    # --months 값이 매우 커서 그 이전 구간을 요청하면, 아래 fx_aligned_*에서
+    print(f"[3/5] {FX_TICKER} (USD/TWD 환율) 데이터 가져오는 중...")
+    # 참고: Yahoo Finance의 USD/TWD 환율 데이터는 통상 2000년대 초반부터 제공됩니다.
+    # --months 값이 매우 커서(예: 30년) 그 이전 구간을 요청하면, 아래 fx_aligned_*에서
     # 가장 오래된 환율값으로 backward-fill 되어 근사치로 처리됩니다.
     fx_close = fetch_ohlc(FX_TICKER, start_date, end_date, adjusted=False)["Close"]
 
-    print(f"[4/5] {KOSPI_TICKER} 원시(raw) 종가 데이터 가져오는 중 (시가배당율 계산용)...")
+    print(f"[4/5] {LOCAL_TICKER} 원시(raw) 종가 데이터 가져오는 중 (시가배당율 계산용)...")
     # 시가배당율은 "그 날 실제 거래된 시장가" 기준이어야 하므로 수정주가가 아닌 raw 종가를 사용
-    kospi_raw_close = fetch_ohlc(KOSPI_TICKER, start_date, end_date, adjusted=False)["Close"]
+    local_raw_close = fetch_ohlc(LOCAL_TICKER, start_date, end_date, adjusted=False)["Close"]
 
-    print(f"[5/5] {KOSPI_TICKER} 배당 이력(시가배당율 계산용) 가져오는 중...")
-    dividend_yield = fetch_dividend_yield(KOSPI_TICKER, kospi_raw_close)
+    print(f"[5/5] {LOCAL_TICKER} 배당 이력(시가배당율 계산용) 가져오는 중...")
+    dividend_yield = fetch_dividend_yield(LOCAL_TICKER, local_raw_close)
 
-    # SKHY 거래일에 맞춰 일별 환율을 정렬(직전 영업일 환율로 forward-fill)
+    # 참고용: 가장 최근 USD/TWD 환율 (차트 제목 표시용)
+    current_usd2twd = float(fx_close.iloc[-1])
+    print(f"참고 - 최근 USD/TWD 환율(최근 종가 기준): {current_usd2twd:,.2f}")
+
+    # TSM 거래일에 맞춰 일별 환율을 정렬(직전 영업일 환율로 forward-fill)
     fx_aligned_adr = fx_close.sort_index().reindex(adr.index, method="ffill")
     fx_aligned_adr = fx_aligned_adr.bfill()  # 맨 앞부분에 결측치가 있으면 뒤 값으로 채움
 
-    # SKHY(USD, ADR) -> 보통주 환산 원화가 (KRW) : 일별 환율 반영
-    skhy_krw = adr.mul(fx_aligned_adr * ADR_RATIO, axis=0)
+    # TSM(USD, ADR) -> 원주 1주 환산 대만달러가 (TWD) : 일별 환율 반영
+    # 1 ADR = 원주 5주이므로, ADR가(USD)*환율 은 "원주 5주"의 가치를 나타냄
+    # -> 원주 1주 기준으로 비교하려면 ADR_RATIO(5)로 나눠야 함
+    tsm_twd = adr.mul(fx_aligned_adr / ADR_RATIO, axis=0)
 
-    # 종가 기준으로 날짜 정렬 (한국/미국 거래일 차이는 forward-fill) - 하단 % 차이 계산용
+    # 종가 기준으로 날짜 정렬 (대만/미국 거래일 차이는 forward-fill) - 하단 % 차이 계산용
     close_df = pd.concat(
-        [kospi["Close"].rename(KOSPI_TICKER), adr["Close"].rename(ADR_TICKER)], axis=1
+        [local["Close"].rename(LOCAL_TICKER), adr["Close"].rename(ADR_TICKER)], axis=1
     ).sort_index()
     close_df = close_df.ffill().dropna()
 
     # close_df 날짜에 맞춰서도 일별 환율을 별도로 정렬 (해당 날짜의 환율 사용)
     fx_aligned_close = fx_close.sort_index().reindex(close_df.index, method="ffill").bfill()
 
-    # SKHY(ADR)를 "해당 날짜의" 환율로 KRW 환산 후, 000660.KS 대비 몇 % 차이 나는지 계산
-    adr_equiv_krw_daily = close_df[ADR_TICKER] * ADR_RATIO * fx_aligned_close
-    pct_diff = (adr_equiv_krw_daily / close_df[KOSPI_TICKER] - 1) * 100
+    # TSM(ADR)를 "해당 날짜의" 환율로 원주 1주 기준 TWD 환산 후, 2330.TW 대비 몇 % 차이 나는지 계산
+    # (1 ADR = 원주 5주 이므로 ADR_RATIO로 나눠 원주 1주 환산가를 구함)
+    adr_equiv_twd_daily = close_df[ADR_TICKER] * fx_aligned_close / ADR_RATIO
+    pct_diff = (adr_equiv_twd_daily / close_df[LOCAL_TICKER] - 1) * 100
     pct_diff.name = "pct_diff"
 
-    return kospi, skhy_krw, pct_diff, dividend_yield
+    return local, tsm_twd, pct_diff, current_usd2twd, dividend_yield
 
 
-def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
+def build_figure(local, tsm_twd, pct_diff, current_usd2twd, dividend_yield, months):
     fig = make_subplots(
         rows=2,
         cols=1,
@@ -192,19 +198,19 @@ def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
         row_heights=[0.62, 0.38],
         specs=[[{"secondary_y": True}], [{"secondary_y": False}]],
         subplot_titles=(
-            f"{KOSPI_TICKER} vs {ADR_TICKER}×{ADR_RATIO} (KRW, 오른쪽) "
+            f"{LOCAL_TICKER} vs {ADR_TICKER}÷{ADR_RATIO} (TWD, 오른쪽) "
             f"+ Yearly Dividend Rate (%, 왼쪽) — Candlestick",
-            f"Premium/Discount: {ADR_TICKER}×{ADR_RATIO}×USD/KRW(해당일 환율 반영) "
-            f"vs {KOSPI_TICKER} (%)",
+            f"Premium/Discount: {ADR_TICKER}÷{ADR_RATIO}×USD/TWD(해당일 환율 반영) "
+            f"vs {LOCAL_TICKER} (%)",
         ),
     )
 
-    # --- 상단 차트: 캔들차트 2개 (오른쪽 y축, KRW), 시가배당율 라인 (왼쪽 y축, %) ---
+    # --- 상단 차트: 캔들차트 2개 (오른쪽 y축, TWD), 시가배당율 라인 (왼쪽 y축, %) ---
     fig.add_trace(
         go.Scatter(
             x=dividend_yield.index,
             y=dividend_yield,
-            name=f"{KOSPI_TICKER} 시가배당율 (%, 왼쪽)",
+            name=f"{LOCAL_TICKER} 시가배당율 (%, 왼쪽)",
             mode="lines",
             line=dict(color="#8c564b", width=2, dash="dot"),
         ),
@@ -214,12 +220,12 @@ def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
     )
     fig.add_trace(
         go.Candlestick(
-            x=kospi.index,
-            open=kospi["Open"],
-            high=kospi["High"],
-            low=kospi["Low"],
-            close=kospi["Close"],
-            name=f"{KOSPI_TICKER} (KRW)",
+            x=local.index,
+            open=local["Open"],
+            high=local["High"],
+            low=local["Low"],
+            close=local["Close"],
+            name=f"{LOCAL_TICKER} (TWD)",
             increasing_line_color=INCREASING_COLOR,
             decreasing_line_color=DECREASING_COLOR,
         ),
@@ -229,12 +235,12 @@ def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
     )
     fig.add_trace(
         go.Candlestick(
-            x=skhy_krw.index,
-            open=skhy_krw["Open"],
-            high=skhy_krw["High"],
-            low=skhy_krw["Low"],
-            close=skhy_krw["Close"],
-            name=f"{ADR_TICKER}×{ADR_RATIO} 환산 (KRW)",
+            x=tsm_twd.index,
+            open=tsm_twd["Open"],
+            high=tsm_twd["High"],
+            low=tsm_twd["Low"],
+            close=tsm_twd["Close"],
+            name=f"{ADR_TICKER}÷{ADR_RATIO} 환산 (TWD)",
             increasing_line_color=INCREASING_COLOR,
             decreasing_line_color=DECREASING_COLOR,
         ),
@@ -244,7 +250,7 @@ def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
     )
 
     fig.update_yaxes(title_text="Yearly Dividend Rate (%)", row=1, col=1, secondary_y=False)
-    fig.update_yaxes(title_text="Price (KRW)", row=1, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="Price (TWD)", row=1, col=1, secondary_y=True)
     # 캔들차트 기본 range slider는 끄고, 아래쪽 차트에만 range slider를 사용
     fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
 
@@ -273,7 +279,7 @@ def build_figure(kospi, skhy_krw, pct_diff, dividend_yield, months):
     )
 
     fig.update_layout(
-        title=f"SK Hynix (000660.KS) vs SKHY ADR — 최근 {months}개월",
+        title=f"TSMC (2330.TW) vs TSM ADR — 최근 {months}개월",
         template="plotly_white",
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.06, xanchor="right", x=1),
@@ -290,10 +296,10 @@ def main():
     if args.months <= 0:
         sys.exit("--months 값은 1 이상이어야 합니다.")
 
-    kospi, skhy_krw, pct_diff, dividend_yield = build_data(args.months)
-    fig = build_figure(kospi, skhy_krw, pct_diff, dividend_yield, args.months)
+    local, tsm_twd, pct_diff, current_usd2twd, dividend_yield = build_data(args.months)
+    fig = build_figure(local, tsm_twd, pct_diff, current_usd2twd, dividend_yield, args.months)
 
-    output_path = "hynix_adr_comparison.html"
+    output_path = "tsmc_adr_comparison.html"
     fig.write_html(
         output_path,
         config={
