@@ -225,6 +225,10 @@ def build_data(months: int):
     # 가장 오래된 환율값으로 backward-fill 되어 근사치로 처리됩니다.
     fx_close = fetch_ohlc(FX_TICKER, start_date, end_date, adjusted=False)["Close"]
 
+    # 진단용: 최근 실제 거래일이 각 티커에 어떻게 찍히는지 확인 (특정 날짜 누락 여부 파악용)
+    print(f"  {LOCAL_TICKER} 최근 거래일: {[d.date().isoformat() for d in local.index[-5:]]}")
+    print(f"  {ADR_TICKER} 최근 거래일: {[d.date().isoformat() for d in adr.index[-5:]]}")
+
     # 오늘 데이터가 일간 다운로드에 아직 없다면(장중이거나 반영 지연 등) 현재가로 보강
     print("오늘 날짜 데이터 확인 중...")
     local = ensure_today_row(local, LOCAL_TICKER)
@@ -255,7 +259,9 @@ def build_data(months: int):
     close_df = pd.concat(
         [local["Close"].rename(LOCAL_TICKER), adr["Close"].rename(ADR_TICKER)], axis=1
     ).sort_index()
-    close_df = close_df.ffill().dropna()
+    close_df = close_df.ffill()
+    # 두 값이 "모두" 없는 날짜만 제외합니다. (하나만 없으면 위 ffill()로 이미 채워졌으므로 유지)
+    close_df = close_df.dropna(how="all")
 
     # close_df 날짜에 맞춰서도 일별 환율을 별도로 정렬 (해당 날짜의 환율 사용)
     fx_aligned_close = fx_close.sort_index().reindex(close_df.index, method="ffill").bfill()

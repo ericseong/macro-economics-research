@@ -75,7 +75,40 @@ def parse_args():
         help="조회할 개월 수 (오늘로부터 n개월 전까지의 일간 데이터를 사용, "
         "야후 파이낸스에 존재하는 전체 이력을 보려면 충분히 큰 값(예: 360)을 지정)",
     )
+    parser.add_argument(
+        "--debug-date",
+        type=str,
+        default=None,
+        help="특정 날짜(YYYY-MM-DD)가 파이프라인 각 단계에서 어떻게 처리되는지 "
+        "추적 로그를 출력합니다. 예: --debug-date 2026-08-17",
+    )
     return parser.parse_args()
+
+
+def make_debug_checker(debug_date: str):
+    """디버깅용: 특정 날짜가 각 단계의 DataFrame/Series에 남아있는지, 값이 무엇인지 출력하는 함수를 반환."""
+    if not debug_date:
+        return lambda label, obj: None
+
+    debug_ts = pd.Timestamp(debug_date)
+
+    def check(label: str, obj):
+        if isinstance(obj, pd.DataFrame):
+            if debug_ts in obj.index:
+                row = obj.loc[debug_ts]
+                print(f"  [DEBUG] {label}: {debug_ts.date()} 존재함 -> {row.to_dict()}")
+            else:
+                print(f"  [DEBUG] {label}: {debug_ts.date()} 없음 (인덱스에서 누락)")
+        elif isinstance(obj, pd.Series):
+            if debug_ts in obj.index:
+                val = obj.loc[debug_ts]
+                print(f"  [DEBUG] {label}: {debug_ts.date()} 존재함 -> {val}")
+            else:
+                print(f"  [DEBUG] {label}: {debug_ts.date()} 없음 (인덱스에서 누락)")
+        else:
+            print(f"  [DEBUG] {label}: 알 수 없는 타입({type(obj)})이라 확인 불가")
+
+    return check
 
 
 def fetch_ohlc(ticker: str, start: datetime, end: datetime, adjusted: bool = True) -> pd.DataFrame:
@@ -208,7 +241,9 @@ def ensure_today_fx(fx_close: pd.Series, fx_ticker: str) -> pd.Series:
     return pd.concat([fx_close, today_row]).sort_index()
 
 
-def build_data(months: int):
+def build_data(months: int, debug_date: str = None):
+    debug = make_debug_checker(debug_date)
+
     end_date = datetime.today() + timedelta(days=1)  # 오늘자 데이터까지 포함
     start_date = end_date - timedelta(days=int(months * 30.44) + 5)
 
@@ -216,21 +251,31 @@ def build_data(months: int):
 
     print(f"[1/5] {KOSPI_TICKER} (KOSPI) 수정주가(adjusted) 데이터 가져오는 중...")
     kospi = fetch_ohlc(KOSPI_TICKER, start_date, end_date, adjusted=True)
+    debug("kospi (fetch_ohlc 직후, adjusted)", kospi)
 
     print(f"[2/5] {ADR_TICKER} (Nasdaq ADR) 수정주가(adjusted) 데이터 가져오는 중...")
     adr = fetch_ohlc(ADR_TICKER, start_date, end_date, adjusted=True)
+    debug("adr (fetch_ohlc 직후, adjusted)", adr)
 
     print(f"[3/5] {FX_TICKER} (USD/KRW 환율) 데이터 가져오는 중...")
     # 참고: Yahoo Finance의 USD/KRW 환율 데이터는 통상 2000년대 초반부터 제공됩니다.
     # --months 값이 매우 커서 그 이전 구간을 요청하면, 아래 fx_aligned_*에서
     # 가장 오래된 환율값으로 backward-fill 되어 근사치로 처리됩니다.
     fx_close = fetch_ohlc(FX_TICKER, start_date, end_date, adjusted=False)["Close"]
+    debug("fx_close (fetch_ohlc 직후)", fx_close)
+
+    # 진단용: 최근 실제 거래일이 각 티커에 어떻게 찍히는지 확인 (특정 날짜 누락 여부 파악용)
+    print(f"  {KOSPI_TICKER} 최근 거래일: {[d.date().isoformat() for d in kospi.index[-5:]]}")
+    print(f"  {ADR_TICKER} 최근 거래일: {[d.date().isoformat() for d in adr.index[-5:]]}")
 
     # 오늘 데이터가 일간 다운로드에 아직 없다면(장중이거나 반영 지연 등) 현재가로 보강
     print("오늘 날짜 데이터 확인 중...")
     kospi = ensure_today_row(kospi, KOSPI_TICKER)
     adr = ensure_today_row(adr, ADR_TICKER)
     fx_close = ensure_today_fx(fx_close, FX_TICKER)
+    debug("kospi (ensure_today_row 이후)", kospi)
+    debug("adr (ensure_today_row 이후)", adr)
+    debug("fx_close (ensure_today_fx 이후)", fx_close)
 
     print(f"[4/5] {KOSPI_TICKER} 원시(raw) 종가 데이터 가져오는 중 (시가배당율 계산용)...")
     # 시가배당율은 "그 날 실제 거래된 시장가" 기준이어야 하므로 수정주가가 아닌 raw 종가를 사용
@@ -242,25 +287,36 @@ def build_data(months: int):
     # SKHY 거래일에 맞춰 일별 환율을 정렬(직전 영업일 환율로 forward-fill)
     fx_aligned_adr = fx_close.sort_index().reindex(adr.index, method="ffill")
     fx_aligned_adr = fx_aligned_adr.bfill()  # 맨 앞부분에 결측치가 있으면 뒤 값으로 채움
+    debug("fx_aligned_adr (adr.index에 맞춰 정렬된 환율)", fx_aligned_adr)
 
     # SKHY(USD, ADR) -> 보통주 환산 원화가 (KRW) : 일별 환율 반영
     skhy_krw = adr.mul(fx_aligned_adr * ADR_RATIO, axis=0)
+    debug("skhy_krw (상단 차트용 SKHY 환산 캔들)", skhy_krw)
 
     # 종가 기준으로 날짜 정렬 (한국/미국 거래일 차이는 forward-fill) - 하단 % 차이 계산용
     # (오늘 날짜에 둘 중 하나만 값이 있으면, 여기서 ffill()로 없는 쪽을 직전 값으로 채워
     #  "차이"를 계산합니다. 둘 다 없으면 애초에 오늘 인덱스 자체가 없으므로 표시되지 않습니다.)
-    close_df = pd.concat(
+    close_df_raw = pd.concat(
         [kospi["Close"].rename(KOSPI_TICKER), adr["Close"].rename(ADR_TICKER)], axis=1
     ).sort_index()
-    close_df = close_df.ffill().dropna()
+    debug("close_df (concat 직후, ffill 전)", close_df_raw)
+
+    close_df = close_df_raw.ffill()
+    debug("close_df (ffill 이후)", close_df)
+
+    # 두 값이 "모두" 없는 날짜만 제외합니다. (하나만 없으면 위 ffill()로 이미 채워졌으므로 유지)
+    close_df = close_df.dropna(how="all")
+    debug("close_df (dropna(how='all') 이후, 최종)", close_df)
 
     # close_df 날짜에 맞춰서도 일별 환율을 별도로 정렬 (해당 날짜의 환율 사용)
     fx_aligned_close = fx_close.sort_index().reindex(close_df.index, method="ffill").bfill()
+    debug("fx_aligned_close (close_df.index에 맞춰 정렬된 환율)", fx_aligned_close)
 
     # SKHY(ADR)를 "해당 날짜의" 환율로 KRW 환산 후, 000660.KS 대비 몇 % 차이 나는지 계산
     adr_equiv_krw_daily = close_df[ADR_TICKER] * ADR_RATIO * fx_aligned_close
     pct_diff = (adr_equiv_krw_daily / close_df[KOSPI_TICKER] - 1) * 100
     pct_diff.name = "pct_diff"
+    debug("pct_diff (최종 프리미엄/디스카운트 %)", pct_diff)
 
     return kospi, skhy_krw, pct_diff, dividend_yield
 
@@ -372,7 +428,7 @@ def main():
     if args.months <= 0:
         sys.exit("--months 값은 1 이상이어야 합니다.")
 
-    kospi, skhy_krw, pct_diff, dividend_yield = build_data(args.months)
+    kospi, skhy_krw, pct_diff, dividend_yield = build_data(args.months, args.debug_date)
     fig = build_figure(kospi, skhy_krw, pct_diff, dividend_yield, args.months)
 
     output_path = "hynix_adr_comparison.html"
